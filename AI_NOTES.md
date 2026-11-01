@@ -1,0 +1,69 @@
+# AI assistance notes
+
+This file records assistance actually used during the backend-baseline work. It does not certify unrun checks or full completion of the take-home assessment.
+
+## Tools and contributions
+
+- OpenAI Codex: repository and environment inspection, backend-baseline implementation, test/tooling preparation, and Git-workflow execution.
+- Codex subagents: read-only baseline-readiness inspection, independent schema/tooling review, and drafting `README.md`, this file, the API contract, and Git workflow documentation.
+- Human input: the original PDF and the requested three-branch workflow, milestone gates, and evidence requirements.
+
+All generated changes remain the candidate's responsibility. The candidate must understand submitted code and be able to explain and modify it during the interview.
+
+## Prompts used
+
+The user's execution prompt included:
+
+> จัดการ Git workflow ของ SplitBill โดยคงโครงสร้างสาม branch:
+> main: ฐานร่วมที่ผ่านการตรวจตาม milestone
+> dev/backend: งาน backend
+> dev/frontend: งาน frontend
+
+It also required evidence rather than assumed success:
+
+> เริ่มจากตรวจ repository แล้วเสนอขั้นตอนที่ตรงกับสถานะจริง
+> ดำเนินงานตาม milestone ที่ได้รับมอบหมายต่อจนเสร็จ
+> ห้ามอ้างว่า push, merge หรือ integration สำเร็จโดยไม่มีหลักฐานจากการทำงานจริง
+
+These prompts supplied concrete branch responsibilities and explicit verification requirements. Their outcome is assessed through the baseline checks and remote handoff, not through this note alone.
+
+## Incorrect or unsafe AI output
+
+### Missing Alembic revision template
+
+- AI output: the initial migration environment included the migration setup but omitted `backend/alembic/script.py.mako`.
+- Detection: an independent schema review identified that creating the next migration revision would need this missing template. Applying an existing migration alone would not check that workflow.
+- Correction: added the standard revision template and a regression test that generates a new revision in a temporary copy of the migration environment.
+- Verification: `test_next_developer_can_generate_a_revision` first failed with `FileNotFoundError` for the missing template, then passed after the template was added. The corrected test is included in the passing 19-test local baseline suite. Real Alembic CLI upgrade, drift check, downgrade to base, re-upgrade, and repeat seed checks also passed against an isolated application database.
+
+### Unexpected failures initially escaped the JSON error contract
+
+- AI output: the initial error handling covered known HTTP and validation errors but omitted safe JSON handling of unexpected exceptions.
+- Detection: independent review identified the gap; reproducing an unexpected failure returned a non-JSON `500` response that frontend error handling could not consume consistently.
+- Correction: added middleware that returns a safe JSON `500` error envelope while preserving CORS behavior for allowed frontend origins.
+- Verification: `test_unexpected_failure_returns_safe_json_and_frontend_cors` reproduces the failure path and passes after the correction. The test is part of the passing local baseline suite; this is not a claim of browser integration testing.
+
+### Dependency-freeze command returned an error despite exit status zero
+
+- AI proposal: use `pip freeze --exclude-editable` to generate the lock file before the first Git commit existed.
+- Detection: inspecting the command output revealed a `git rev-parse HEAD` failure even though the command exited with status zero. Trusting only that exit status would have missed the failure during editable-project metadata inspection.
+- Correction: generate the pinned dependency list with `importlib.metadata`, excluding the editable project itself, instead of relying on that failing freeze path.
+- Verification: the root implementation agent generated the dependency list using that method and ran `pip check` successfully. This checks installed dependency consistency; it does not stand in for API or database tests.
+
+## Review before each commit
+
+The required review process is:
+
+1. Inspect the staged diff and confirm it contains only the intended milestone work and no secrets.
+2. Compare behavior and assumptions against the PDF and the documented API contract.
+3. Run the relevant lint, format, schema-consistency, and tests for the changes being committed.
+4. Inspect database and authorization behavior in integration tests; do not substitute mocked results for PostgreSQL evidence.
+5. Record actual results and the commit/PR they apply to. Recheck affected behavior after conflict resolution or integration changes.
+
+Commit-specific review evidence belongs in the commit/PR handoff. This process description alone does not claim that every listed review has already happened.
+
+## Local verification record
+
+The implementation agent recorded 19 passing baseline tests without warnings on Python 3.13.7 and PostgreSQL 16.13 after the HTTPX dependency update. Ruff lint/format checks, implemented OpenAPI snapshot consistency, and `pip check` also passed. These are local working-tree results; remote CI, fresh-clone checks, and push/merge results must be recorded separately against the final handoff SHA.
+
+Baseline implementation and review took an estimated 30–45 minutes, excluding the earlier prompt-drafting conversation. This approximate estimate is not a precise time log.
