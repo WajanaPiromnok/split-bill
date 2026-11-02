@@ -75,3 +75,13 @@ The user wrote the starting `100.00 / 3` test and the baht-to-satang conversion 
 An independent review found that the initial completed helper could lose satang when the caller lowered Decimal precision: `1.23` split between two members returned `0.60, 0.60` at precision 2. A regression test reproduced that failure. The correction isolates arithmetic in `localcontext(Context(prec=28))`; the test then passed and confirms the caller's precision remains unchanged.
 
 Local verification after this change: **42 tests passed**, including 23 money tests and the 19 baseline tests, using the project's temporary PostgreSQL 16 instance. Ruff lint/format and the implemented OpenAPI snapshot check also passed. These local results were recorded before the expense API work; remote CI evidence is reported separately against the delivered commit.
+
+## Expense creation and listing (2026-11-02)
+
+The user requested `POST /groups/{group_id}/expenses` followed by `GET /groups/{group_id}/expenses`. Codex implemented the migration, request/response models, repository, transaction and routes. Separate subagents drafted acceptance tests and documentation; an independent reviewer checked monetary precision, authorization and the concurrent idempotency flow.
+
+The initial migration test failed because the expense tables were absent, and the first POST acceptance test failed with 404 instead of 201. Both were observed before implementing the corresponding behavior. POST is verified with real PostgreSQL 16, including synchronized requests on two distinct backend connections and a forced failure after writing shares to verify full rollback. Exact-share totals use their own Decimal context, following the precision issue found during the earlier tutoring example.
+
+The response contract distinguishes creation (201) from replay (200). Existing keys are checked after group access but before business validation; Pydantic request/header structure is still validated first. The chosen policy returns the original expense for changed valid-shaped payloads and retains keys on deleted rows. No requester/payer equality restriction was added.
+
+Verification and remote delivery results for this milestone are recorded after the GET implementation and CI run; endpoint-specific progress is in the implementation plan. The user's pre-existing `.env.example` edit is excluded from the milestone changes.

@@ -13,6 +13,8 @@ from splitbill.seed import seed_database
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
+pytest_plugins = ["expense_fixtures"]
+
 
 @pytest.fixture(scope="session")
 def database_url():

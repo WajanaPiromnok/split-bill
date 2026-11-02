@@ -1,22 +1,24 @@
 # SplitBill
 
-SplitBill is a shared-expense take-home project. This first milestone provides a backend baseline and a reproducible handoff for frontend development.
+SplitBill is a shared-expense take-home project. The backend baseline provides group access and a reproducible handoff for frontend development. The current B1a work extends it with expense creation and listing.
 
 ## Current scope
 
-The baseline contains PostgreSQL migrations, repeatable seed data, and two group endpoints with membership checks:
+The baseline contains PostgreSQL migrations, repeatable seed data, and two group endpoints with membership checks. Expense creation is implemented and locally verified; listing is the next B1a checkpoint:
 
 | Endpoint | Status |
 | --- | --- |
 | `GET /groups` | Baseline |
 | `GET /groups/{group_id}` | Baseline |
-| Create/list/delete expenses | Planned; not available |
+| `POST /groups/{group_id}/expenses` | Implemented; POST checks passed locally |
+| `GET /groups/{group_id}/expenses` | B1a target; implementation/verification in progress |
+| `DELETE /groups/{group_id}/expenses/{expense_id}` | Planned; not available |
 | Balances | Planned; not available |
 | Next.js frontend | Not implemented |
 
 An existing group that the requester cannot access returns `404`, using the same response as an unknown group. This avoids disclosing group existence. `X-User` selects one of the seeded users; it is an assessment convention, not full authentication.
 
-See [the API contract](docs/api-contract.md) for examples and [the Git workflow](docs/git-workflow.md) for milestone and handoff rules. The generated [OpenAPI schema](docs/openapi.json) describes implemented endpoints only.
+See [the API contract](docs/api-contract.md) for the implemented group/expense-creation contract and the listing target, and [the Git workflow](docs/git-workflow.md) for milestone and handoff rules. The generated [OpenAPI schema](docs/openapi.json) describes implemented endpoints only; a target contract is not evidence that a route or its checks are complete.
 
 ## Requirements
 
@@ -98,15 +100,23 @@ cd backend
 
 Commands in this document describe how to check the baseline. Actual results and the SHA checked belong in the milestone handoff or PR; this README alone is not evidence that a command passed.
 
-The local implementation run on Python **3.13.7** and PostgreSQL **16.13** passed **19 baseline tests without warnings**, Ruff lint and formatting checks, the implemented OpenAPI snapshot check, and `pip check`. Against an isolated application database, the real Alembic CLI also passed upgrade, schema-drift check, downgrade to base, upgrade again, and two seed runs. These results describe the local working tree before the final handoff; they do not claim a fresh-clone check, remote CI result, or successful push. Record those separately against the delivered SHA.
+The historical baseline implementation run on Python **3.13.7** and PostgreSQL **16.13** passed **19 baseline tests without warnings**, Ruff lint and formatting checks, the implemented OpenAPI snapshot check, and `pip check`. Against an isolated application database, the real Alembic CLI also passed upgrade, schema-drift check, downgrade to base, upgrade again, and two seed runs. These baseline results do not certify the new expense work. Record B1a checks, fresh-clone results, remote CI, and push/merge evidence separately against the delivered SHA.
+
+## B1a: expense creation and listing
+
+Expense creation now implements equal/exact allocation and group-scoped concurrent idempotency. Its local PostgreSQL 16 run passed **57 POST tests**, including overlapping requests using two database backend PIDs and a forced-write-failure rollback test. Listing in deterministic newest-first order is still in progress; the full B1a suite and remote CI have not been recorded yet. [The expense plan](docs/superpowers/plans/2026-11-02-expenses.md) specifies the remaining checkpoints and Git handoff.
+
+The implemented creation path uses strict API strings, Python `Decimal`, and PostgreSQL `NUMERIC(12,2)`. Plain ASCII digits with zero, one, or two fractional digits are accepted, then output is normalized to two places. Money input strings are limited to 64 characters. Bill amounts must be positive and at most `9999999999.99`; exact shares may be zero. Input precision is checked before rounding or storage.
+
+The requesting user, payer, and participants must all be group members, but the requester may record an expense paid by someone else, and the payer need not be included in the split. Equal splits preserve submitted member order when distributing remaining satang; exact shares must sum to the bill exactly.
+
+The replay policy returns the original expense for a repeated key, including a changed request that passes framework validation. Authorization precedes key lookup; an existing key is resolved before new-expense business validation. Malformed JSON and invalid request shapes still fail with `422`. See the contract for full request, response, and error details.
 
 ## Remaining assessment scope
 
-Expense allocation, exact monetary validation, zero-sum per-member balances, concurrent idempotency, payer-only soft deletion, and the frontend remain to be implemented. The PDF's six required backend cases are not yet complete: only group-read authorization is covered by the baseline; expense creation, write authorization, monetary cases, retry handling, and deletion cases remain for backend B1/B2.
+The current request covers creation and listing only. Creation has passed its local checks; listing and the final B1a handoff are still in progress. Balances, payer-only soft deletion, and the Next.js frontend remain outside this milestone. A stored deletion flag prepares the schema for later soft deletion; it does not provide a DELETE endpoint.
 
-The planned money representation is API decimal strings, Python `Decimal`, PostgreSQL `NUMERIC(12,2)`, and frontend arithmetic that avoids binary floating-point errors. Input precision must be validated before rounding or storage. These are requirements for later milestones, not claims about expense functionality in this baseline.
-
-Before expense APIs are accepted, document the decisions concerning `X-User` versus `paid_by`, changed-payload retries, retries after deletion, empty/duplicate split members, zero/negative exact shares, and stable expense ordering. The PDF does not state that the creator must be the payer.
+The PDF's six required backend cases are not yet all complete. POST tests now cover allocation, exact-sum rejection, excess precision rejection, idempotency, and write authorization. Payer-only deletion tests and per-member zero-sum balance verification still require later work. Frontend arithmetic and previews must eventually match the backend without binary floating-point errors.
 
 Full authentication, optional settlement/payment endpoints, and visual polish are outside this baseline. [AI_NOTES.md](AI_NOTES.md) records AI assistance, detected errors, and corrections. Estimated time for baseline implementation and review is **about 30–45 minutes**, excluding earlier prompt drafting; this is an estimate for the current work, not a precise time log.
 

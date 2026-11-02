@@ -7,11 +7,16 @@ from sqlalchemy import create_engine
 from splitbill.api import router
 from splitbill.config import Settings
 from splitbill.errors import install_error_handlers
+from splitbill.expenses_api import router as expenses_router
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
     settings = Settings()
-    engine = create_engine(database_url or settings.database_url, pool_pre_ping=True)
+    engine = create_engine(
+        database_url or settings.database_url,
+        pool_pre_ping=True,
+        isolation_level="READ COMMITTED",
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -23,7 +28,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app = FastAPI(
         title="SplitBill",
         version="0.1.0",
-        description="Backend baseline: implemented group APIs only. Expense APIs are planned.",
+        description="SplitBill group access and shared expenses with exact monetary allocation.",
         lifespan=lifespan,
     )
     app.state.engine = engine
@@ -35,6 +40,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         allow_headers=["X-User", "Idempotency-Key", "Content-Type"],
     )
     app.include_router(router)
+    app.include_router(expenses_router)
     return app
 
 
