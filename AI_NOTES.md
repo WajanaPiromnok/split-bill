@@ -67,3 +67,11 @@ Commit-specific review evidence belongs in the commit/PR handoff. This process d
 The implementation agent recorded 19 passing baseline tests without warnings on Python 3.13.7 and PostgreSQL 16.13 after the HTTPX dependency update. Ruff lint/format checks, implemented OpenAPI snapshot consistency, and `pip check` also passed. These are local working-tree results; remote CI, fresh-clone checks, and push/merge results must be recorded separately against the final handoff SHA.
 
 Baseline implementation and review took an estimated 30–45 minutes, excluding the earlier prompt-drafting conversation. This approximate estimate is not a precise time log.
+
+## Equal-split tutoring example (2026-11-02)
+
+The user wrote the starting `100.00 / 3` test and the baht-to-satang conversion while learning. After the explicit request "ลองทำให้ดูเลยก็ได้ครับ", Codex completed `split_equal` and added tests for ordered remainder allocation, small amounts, invalid inputs, and the NUMERIC(12,2) limit. At the end of that lesson the helper was not yet connected to expense API endpoints.
+
+An independent review found that the initial completed helper could lose satang when the caller lowered Decimal precision: `1.23` split between two members returned `0.60, 0.60` at precision 2. A regression test reproduced that failure. The correction isolates arithmetic in `localcontext(Context(prec=28))`; the test then passed and confirms the caller's precision remains unchanged.
+
+Local verification after this change: **42 tests passed**, including 23 money tests and the 19 baseline tests, using the project's temporary PostgreSQL 16 instance. Ruff lint/format and the implemented OpenAPI snapshot check also passed. These local results were recorded before the expense API work; remote CI evidence is reported separately against the delivered commit.
