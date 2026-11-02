@@ -36,3 +36,8 @@ def create_expense(
     result, created = expenses.create_expense(session, group_id, username, idempotency_key, payload)
     response.status_code = 201 if created else 200
     return result
+
+
+@router.get("", response_model=list[ExpenseResponse], responses=ERROR_RESPONSES)
+def list_expenses(group_id: int, session: DatabaseSession, username: CurrentUser):
+    return expenses.list_expenses(session, group_id, username)

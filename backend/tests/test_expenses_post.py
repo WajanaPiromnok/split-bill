@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from threading import Barrier, Lock
 
 import pytest
@@ -353,3 +353,21 @@ def test_share_failure_rolls_back_expense_and_key_then_allows_retry(
     retry = post_expense(expense_client)
     assert retry.status_code == 201, retry.text
     assert_stored_counts(expense_engine, expenses=1, shares=3)
+
+
+@pytest.mark.parametrize(("amount", "expected_status"), [("1.20", 422), ("1.23", 201)])
+def test_exact_share_sum_is_independent_of_callers_decimal_precision(
+    expense_client, amount, expected_status
+):
+    payload = expense_payload()
+    payload["amount"] = amount
+    payload["split"] = {"type": "exact", "shares": {"alice": "0.61", "bob": "0.62"}}
+
+    with localcontext() as context:
+        context.prec = 2
+        response = post_expense(expense_client, payload)
+        assert context.prec == 2
+
+    assert response.status_code == expected_status, response.text
+    if expected_status == 201:
+        assert response.json()["shares"] == {"alice": "0.61", "bob": "0.62"}

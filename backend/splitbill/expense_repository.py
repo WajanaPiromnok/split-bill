@@ -68,3 +68,13 @@ def get_expense_shares(session: Session, expense_ids: list[int]) -> list[Expense
             .order_by(ExpenseShare.expense_id, ExpenseShare.position)
         )
     )
+
+
+def list_group_expenses(session: Session, group_id: int) -> list[Expense]:
+    return list(
+        session.scalars(
+            select(Expense)
+            .where(Expense.group_id == group_id, Expense.deleted.is_(False))
+            .order_by(Expense.created_at.desc(), Expense.id.desc())
+        )
+    )

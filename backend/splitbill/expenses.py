@@ -112,3 +112,14 @@ def create_expense(
     # The request dependency closes/rolls back the session if any write or commit fails.
     session.commit()
     return result, True
+
+
+def list_expenses(session: Session, group_id: int, username: str) -> list[ExpenseResponse]:
+    services.read_group(session, group_id, username)
+    records = expense_repository.list_group_expenses(session, group_id)
+    shares_by_expense: dict[int, list[ExpenseShare]] = {expense.id: [] for expense in records}
+    for share in expense_repository.get_expense_shares(
+        session, [expense.id for expense in records]
+    ):
+        shares_by_expense[share.expense_id].append(share)
+    return [expense_response(expense, shares_by_expense[expense.id]) for expense in records]

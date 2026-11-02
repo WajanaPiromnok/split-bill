@@ -18,7 +18,7 @@ def main() -> None:
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(rendered)
-        print("Exported implemented group APIs to docs/openapi.json")
+        print("Exported implemented APIs to docs/openapi.json")
 
 
 if __name__ == "__main__":

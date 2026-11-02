@@ -1,6 +1,6 @@
 # SplitBill API contract
 
-The group endpoints and expense creation are implemented. Expense creation has passed its local POST checks; expense listing remains the **B1a target contract** and is not yet verified. This document does not claim a final B1a handoff, remote CI result, or frontend integration. Use the handoff SHA to select matching code and `docs/openapi.json`.
+The group endpoints, expense creation, and expense listing are implemented. The final local B1a suite passed 115 tests, and real HTTP checks exercised both expense routes. This document does not claim a completed remote CI run, merge/sync, fresh-clone handoff, or frontend integration. Use the handoff SHA to select matching code and `docs/openapi.json`.
 
 ## Baseline HTTP conventions
 
@@ -142,9 +142,9 @@ For example, an existing authorized key can return the original expense despite 
 
 The same key in another group is independent, subject to that group's access check. Uniqueness is `(group_id, idempotency_key)` and continues covering retained deleted rows. No delete route exists in B1a; keeping a `deleted` flag does not implement soft deletion.
 
-Concurrent requests use a PostgreSQL transaction at READ COMMITTED: insert with `ON CONFLICT DO NOTHING`, then select the winning expense. Only the winning insertion creates shares; a replay cannot observe a committed partial expense. The local POST checks include a real PostgreSQL overlap using two backend PIDs, complete-share verification, and rollback after a forced write failure. They do not certify the still-pending listing route or remote CI.
+Concurrent requests use a PostgreSQL transaction at READ COMMITTED: insert with `ON CONFLICT DO NOTHING`, then select the winning expense. Only the winning insertion creates shares; a replay cannot observe a committed partial expense. The service validates the exact allocation total before the transaction is committed; a database cross-row aggregate constraint is not claimed. The local POST checks include a real PostgreSQL overlap using two backend PIDs, complete-share verification, and rollback after a forced write failure. They are included in the passing local suite and do not certify remote CI.
 
-## B1a target: GET /groups/{group_id}/expenses
+## Implemented: GET /groups/{group_id}/expenses
 
 ```http
 GET /groups/1/expenses
@@ -157,6 +157,8 @@ Returns `200` with an array of the expense response objects above, or `[]` when 
 - Include only records where `deleted` is false.
 - Sort by `created_at` descending, then `id` descending for stable timestamp ties.
 - Keep expenses and shares isolated to the requested group; do not expose another group's records.
+
+The 13 local GET tests cover ordering by timestamp independently of insertion identity, descending-ID timestamp ties, empty lists, authorization/group isolation, and exclusion of retained deleted rows. Real HTTP verification also returned the newest expense before the earlier one. These checks do not imply that a DELETE or balances endpoint exists.
 
 ## Still planned after B1a
 
