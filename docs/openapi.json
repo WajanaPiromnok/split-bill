@@ -1,6 +1,32 @@
 {
   "components": {
     "schemas": {
+      "EqualSplitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "members": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Members",
+            "type": "array"
+          },
+          "type": {
+            "const": "equal",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "members"
+        ],
+        "title": "EqualSplitRequest",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -68,6 +94,144 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "ExactSplitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "shares": {
+            "additionalProperties": {
+              "maxLength": 64,
+              "type": "string"
+            },
+            "minProperties": 1,
+            "propertyNames": {
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "title": "Shares",
+            "type": "object"
+          },
+          "type": {
+            "const": "exact",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "shares"
+        ],
+        "title": "ExactSplitRequest",
+        "type": "object"
+      },
+      "ExpenseCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maxLength": 64,
+            "title": "Amount",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "paid_by": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Paid By",
+            "type": "string"
+          },
+          "split": {
+            "discriminator": {
+              "mapping": {
+                "equal": "#/components/schemas/EqualSplitRequest",
+                "exact": "#/components/schemas/ExactSplitRequest"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EqualSplitRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ExactSplitRequest"
+              }
+            ],
+            "title": "Split"
+          }
+        },
+        "required": [
+          "description",
+          "paid_by",
+          "amount",
+          "split"
+        ],
+        "title": "ExpenseCreateRequest",
+        "type": "object"
+      },
+      "ExpenseResponse": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "paid_by": {
+            "title": "Paid By",
+            "type": "string"
+          },
+          "shares": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Shares",
+            "type": "object"
+          },
+          "split_type": {
+            "enum": [
+              "equal",
+              "exact"
+            ],
+            "title": "Split Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "group_id",
+          "description",
+          "paid_by",
+          "amount",
+          "split_type",
+          "shares",
+          "created_at",
+          "deleted"
+        ],
+        "title": "ExpenseResponse",
+        "type": "object"
+      },
       "GroupDetail": {
         "properties": {
           "id": {
@@ -115,7 +279,7 @@
     }
   },
   "info": {
-    "description": "Backend baseline: implemented group APIs only. Expense APIs are planned.",
+    "description": "SplitBill group access and shared expenses with exact monetary allocation.",
     "title": "SplitBill",
     "version": "0.1.0"
   },
@@ -255,6 +419,181 @@
         "summary": "Read Group",
         "tags": [
           "groups"
+        ]
+      }
+    },
+    "/groups/{group_id}/expenses": {
+      "get": {
+        "operationId": "list_expenses_groups__group_id__expenses_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User",
+            "required": true,
+            "schema": {
+              "title": "X-User",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExpenseResponse"
+                  },
+                  "title": "Response List Expenses Groups  Group Id  Expenses Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, empty or unknown X-User"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Group not found or inaccessible"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or expense allocation"
+          }
+        },
+        "summary": "List Expenses",
+        "tags": [
+          "expenses"
+        ]
+      },
+      "post": {
+        "operationId": "create_expense_groups__group_id__expenses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User",
+            "required": true,
+            "schema": {
+              "title": "X-User",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponse"
+                }
+              }
+            },
+            "description": "Original expense for an existing key"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, empty or unknown X-User"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Group not found or inaccessible"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or expense allocation"
+          }
+        },
+        "summary": "Create Expense",
+        "tags": [
+          "expenses"
         ]
       }
     }

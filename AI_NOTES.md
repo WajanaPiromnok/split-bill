@@ -67,3 +67,25 @@ Commit-specific review evidence belongs in the commit/PR handoff. This process d
 The implementation agent recorded 19 passing baseline tests without warnings on Python 3.13.7 and PostgreSQL 16.13 after the HTTPX dependency update. Ruff lint/format checks, implemented OpenAPI snapshot consistency, and `pip check` also passed. These are local working-tree results; remote CI, fresh-clone checks, and push/merge results must be recorded separately against the final handoff SHA.
 
 Baseline implementation and review took an estimated 30–45 minutes, excluding the earlier prompt-drafting conversation. This approximate estimate is not a precise time log.
+
+## Equal-split tutoring example (2026-11-02)
+
+The user wrote the starting `100.00 / 3` test and the baht-to-satang conversion while learning. After the explicit request "ลองทำให้ดูเลยก็ได้ครับ", Codex completed `split_equal` and added tests for ordered remainder allocation, small amounts, invalid inputs, and the NUMERIC(12,2) limit. At the end of that lesson the helper was not yet connected to expense API endpoints.
+
+An independent review found that the initial completed helper could lose satang when the caller lowered Decimal precision: `1.23` split between two members returned `0.60, 0.60` at precision 2. A regression test reproduced that failure. The correction isolates arithmetic in `localcontext(Context(prec=28))`; the test then passed and confirms the caller's precision remains unchanged.
+
+Local verification after this change: **42 tests passed**, including 23 money tests and the 19 baseline tests, using the project's temporary PostgreSQL 16 instance. Ruff lint/format and the implemented OpenAPI snapshot check also passed. These local results were recorded before the expense API work; remote CI evidence is reported separately against the delivered commit.
+
+## Expense creation and listing (2026-11-02)
+
+The user requested `POST /groups/{group_id}/expenses` followed by `GET /groups/{group_id}/expenses`. Codex implemented the migration, request/response models, repository, transaction and routes. Separate subagents drafted acceptance tests and documentation; an independent reviewer checked monetary precision, authorization and the concurrent idempotency flow.
+
+The initial migration test failed because the expense tables were absent, and the first POST acceptance test failed with 404 instead of 201. Both were observed before implementing the corresponding behavior. POST is verified with real PostgreSQL 16, including synchronized requests on two distinct backend connections and a forced failure after writing shares to verify full rollback. Exact-share totals use their own Decimal context, following the precision issue found during the earlier tutoring example.
+
+The response contract distinguishes creation (201) from replay (200). Existing keys are checked after group access but before business validation; Pydantic request/header structure is still validated first. The chosen policy returns the original expense for changed valid-shaped payloads and retains keys on deleted rows. No requester/payer equality restriction was added.
+
+Verification and remote delivery results for this milestone are recorded after the GET implementation and CI run; endpoint-specific progress is in the implementation plan. The user's pre-existing `.env.example` edit is excluded from the milestone changes.
+
+The GET contract test was observed failing with 405 before adding the route, then passed. An independent test agent added listing cases with independently controlled timestamps, including an older high-ID expense and newer low-ID expense, group isolation, ordered exact shares and retained soft-deleted rows. The GET implementation fetches shares in bulk and orders active expenses by `created_at DESC, id DESC`.
+
+Final local milestone verification: **115 tests passed** on PostgreSQL 16, including 59 POST cases and 13 GET cases. Ruff lint/format and the generated OpenAPI check passed. Real HTTP checks against Uvicorn confirmed create 201, replay 200 with the original record, exact split creation, newest-first listing, group denial 404 and invalid exact total 422. These are local results; remote CI, merge and final SHA are recorded separately in the milestone handoff.
