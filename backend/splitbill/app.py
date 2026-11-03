@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine
 
 from splitbill.api import router
+from splitbill.balances_api import router as balances_router
 from splitbill.config import Settings
 from splitbill.errors import install_error_handlers
 from splitbill.expenses_api import router as expenses_router
@@ -28,7 +29,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app = FastAPI(
         title="SplitBill",
         version="0.1.0",
-        description="SplitBill group access and shared expenses with exact monetary allocation.",
+        description="SplitBill group access, shared expenses, soft deletion and exact balances.",
         lifespan=lifespan,
     )
     app.state.engine = engine
@@ -41,6 +42,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     )
     app.include_router(router)
     app.include_router(expenses_router)
+    app.include_router(balances_router)
     return app
 
 

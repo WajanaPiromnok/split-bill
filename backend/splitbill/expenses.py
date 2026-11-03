@@ -123,3 +123,14 @@ def list_expenses(session: Session, group_id: int, username: str) -> list[Expens
     ):
         shares_by_expense[share.expense_id].append(share)
     return [expense_response(expense, shares_by_expense[expense.id]) for expense in records]
+
+
+def delete_expense(session: Session, group_id: int, expense_id: int, username: str) -> None:
+    services.read_group(session, group_id, username)
+    expense = expense_repository.get_group_expense(session, group_id, expense_id)
+    if expense is None:
+        raise ApiError(404, "expense_not_found", "Expense not found")
+    if expense.paid_by != username:
+        raise ApiError(403, "expense_delete_forbidden", "Only the payer can delete this expense")
+    expense.deleted = True
+    session.commit()
