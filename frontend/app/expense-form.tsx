@@ -49,25 +49,25 @@ export default function ExpenseForm({
     members.length > 0 &&
     (mode === "equal" || (validShares && remaining === 0n));
   const reason = !description.trim()
-    ? "เพิ่มรายละเอียดรายการก่อนบันทึก"
+    ? "กรอกรายละเอียดก่อนบันทึก"
     : !validTotal
       ? "ระบุยอดบิลมากกว่า 0 และทศนิยมไม่เกิน 2 ตำแหน่ง"
       : !members.length
         ? "เลือกผู้ร่วมหารอย่างน้อย 1 คน"
         : mode === "exact" && invalidShares
-          ? "จำนวนแบ่งต้องเป็นตัวเลขตั้งแต่ 0 และทศนิยมไม่เกิน 2 ตำแหน่ง"
+          ? "ส่วนแบ่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป และมีทศนิยมไม่เกิน 2 ตำแหน่ง"
           : mode === "exact" && !validShares
-            ? "กรอกจำนวนของผู้ร่วมหารให้ครบ ใส่ 0 ได้"
+            ? "กรอกส่วนแบ่งของผู้ร่วมหารให้ครบ ใส่ 0 ได้"
             : !ready
-              ? "ยอดแบ่งต้องรวมเท่ากับยอดบิล"
-              : "ตรวจส่วนแบ่งเรียบร้อยแล้ว บันทึกได้เลย";
+              ? "ส่วนแบ่งรวมต้องเท่ากับยอดบิล"
+              : "ยอดแบ่งครบแล้ว บันทึกได้เลย";
 
   return (
     <section className="entry-panel" aria-labelledby="entry-title">
       <div className="section-heading">
         <div>
           <h2 id="entry-title">เพิ่มค่าใช้จ่าย</h2>
-          <p>ใครออกให้ ใครหารบ้าง เช็กได้ก่อนบันทึก</p>
+          <p>เลือกคนจ่ายกับคนที่หาร แล้วเช็กส่วนแบ่งก่อนบันทึก</p>
         </div>
         <span className="unit-tag">THB</span>
       </div>
@@ -152,7 +152,7 @@ export default function ExpenseForm({
           >
             {amount !== "" && !validTotal
               ? "ใช้ตัวเลขมากกว่า 0 ไม่เกิน 9,999,999,999.99 และทศนิยมไม่เกิน 2 ตำแหน่ง"
-              : "ใส่ตัวเลข เช่น 100.00 โดยไม่ต้องใส่เครื่องหมายคั่นหลักพัน"}
+              : "เช่น 100.00 ไม่ต้องใส่จุลภาคคั่นหลักพัน"}
           </p>
           <fieldset className="split-field">
             <legend>แบ่งกันแบบไหน</legend>
@@ -245,7 +245,7 @@ export default function ExpenseForm({
           </div>
           {mode === "equal" ? (
             <p className="field-hint">
-              เศษสตางค์จะแจกตามลำดับผู้ร่วมหารจากบนลงล่าง
+              แจกเศษสตางค์ตามลำดับรายชื่อจากบนลงล่าง
             </p>
           ) : (
             <>
@@ -253,8 +253,8 @@ export default function ExpenseForm({
                 id="exact-help"
                 className={invalidShares ? "field-error" : "field-hint"}
               >
-                จำนวนของแต่ละคนใส่ 0 ได้ ใช้ตัวเลขไม่เกิน 9,999,999,999.99
-                และทศนิยมไม่เกิน 2 ตำแหน่ง ไม่ใส่เครื่องหมายคั่นหลักพัน
+                แต่ละคนใส่ 0 ได้ ยอดต่อคนไม่เกิน 9,999,999,999.99 บาท
+                ทศนิยมไม่เกิน 2 ตำแหน่ง ไม่ต้องใส่จุลภาคคั่นหลักพัน
               </p>
               <div
                 className={`remainder ${remaining !== 0n || !validShares ? "is-incomplete" : ""}`}
@@ -262,7 +262,7 @@ export default function ExpenseForm({
               >
                 <span>
                   {remaining !== null && remaining < 0n
-                    ? "แบ่งเกินไป"
+                    ? "แบ่งเกินยอดบิล"
                     : "ยังต้องแบ่งอีก"}
                 </span>
                 <strong className="money">
@@ -274,8 +274,8 @@ export default function ExpenseForm({
                 {!validShares && (
                   <small>
                     {invalidShares
-                      ? "แก้รูปแบบจำนวนแบ่งให้ถูกต้อง"
-                      : "กรอกจำนวนของผู้ร่วมหารให้ครบ"}
+                      ? "ตรวจรูปแบบส่วนแบ่งอีกครั้ง"
+                      : "กรอกส่วนแบ่งของผู้ร่วมหารให้ครบ"}
                   </small>
                 )}
               </div>

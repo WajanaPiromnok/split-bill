@@ -10,7 +10,7 @@ const noto = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "SplitBill — แบ่งบิลให้ลงตัว",
+  title: "SplitBill: แบ่งบิลให้ลงตัว",
   description: "บันทึกค่าใช้จ่ายกับเพื่อน ดูส่วนแบ่งและยอดสุทธิได้ครบทุกสตางค์",
 };
 

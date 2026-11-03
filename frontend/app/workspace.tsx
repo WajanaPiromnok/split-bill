@@ -45,7 +45,7 @@ export default function Workspace() {
       const saved = decodePending(raw);
       if (raw && !saved)
         setStorageError(
-          "ข้อมูลรายการที่รอส่งไม่สมบูรณ์ กรุณาตรวจรายการในกลุ่มก่อนเพิ่มบิลใหม่",
+          "อ่านข้อมูลรายการรอส่งไม่ได้ กรุณาตรวจรายการในกลุ่มก่อนเพิ่มบิลใหม่",
         );
       if (saved) {
         setPending(saved);
@@ -54,7 +54,7 @@ export default function Workspace() {
       }
     } catch {
       setStorageError(
-        "เบราว์เซอร์ไม่อนุญาตให้เก็บรายการรอส่ง กรุณาอนุญาตพื้นที่จัดเก็บก่อนเพิ่มค่าใช้จ่าย",
+        "เข้าถึงข้อมูลที่เก็บในเบราว์เซอร์ไม่ได้ กรุณาตรวจการตั้งค่าการเก็บข้อมูลก่อนเพิ่มค่าใช้จ่าย",
       );
     }
   }, []);
@@ -333,7 +333,7 @@ function GroupWorkspace({
       setNotice(
         expense.deleted
           ? "รายการเดิมถูกลบแล้ว จึงไม่นำกลับมาคิดยอด"
-          : `บันทึก “${expense.description}” เรียบร้อยแล้ว`,
+          : `บันทึก "${expense.description}" แล้ว`,
       );
       await refresh();
       return true;
@@ -360,7 +360,7 @@ function GroupWorkspace({
       updatePending(intent);
     } catch {
       setActionError(
-        "เก็บรายการรอส่งในเบราว์เซอร์ไม่ได้ ยังไม่ได้ส่งบิล กรุณาอนุญาตพื้นที่จัดเก็บแล้วลองอีกครั้ง",
+        "เบราว์เซอร์เก็บรายการรอส่งไม่ได้ จึงยังไม่ได้ส่งบิล กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วลองอีกครั้ง",
       );
       busy.current = false;
       return false;
@@ -385,12 +385,12 @@ function GroupWorkspace({
               {saving ? "กำลังยืนยันรายการ…" : "มีรายการที่ยังรอยืนยัน"}
             </h2>
             <p>
-              “{pending.body.description}” · {formatMoney(pending.body.amount)}{" "}
+              &quot;{pending.body.description}&quot; · {formatMoney(pending.body.amount)}{" "}
               บาท · {pending.user}
             </p>
             <p>
-              หากการเชื่อมต่อขัดข้อง ให้ส่งรายการเดิมอีกครั้ง
-              ระบบจะตรวจรายการซ้ำให้ ก่อนเริ่มบิลใหม่
+              ถ้าการเชื่อมต่อขัดข้อง ให้ส่งรายการเดิมอีกครั้งก่อนเริ่มบิลใหม่
+              ระบบจะตรวจรายการซ้ำให้
             </p>
           </div>
           <button
@@ -410,7 +410,7 @@ function GroupWorkspace({
         <div className="notice error" role="alert">
           <p>
             {notice
-              ? "บันทึกการเปลี่ยนแปลงแล้ว แต่ยังโหลดข้อมูลล่าสุดไม่ได้ — "
+              ? "บันทึกการเปลี่ยนแปลงแล้ว แต่ยังโหลดข้อมูลล่าสุดไม่ได้: "
               : ""}
             {loadError}
           </p>
@@ -445,7 +445,7 @@ function GroupWorkspace({
               <div className="section-heading">
                 <div>
                   <h2>ยอดสุทธิของสมาชิก</h2>
-                  <p>จ่ายไป − ส่วนที่ต้องรับผิดชอบ</p>
+                  <p>เงินที่จ่ายไป ลบส่วนแบ่งของตัวเอง</p>
                 </div>
               </div>
               <div className="balance-list">
@@ -490,11 +490,11 @@ function GroupWorkspace({
                 <p>
                   ยอดรวมของทุกคนเท่ากับ 0.00 บาท
                   <br />
-                  ตัวเลขนี้เป็นยอดสุทธิ ยังไม่ได้ระบุการโอนเงินระหว่างสมาชิก
+                  ยอดนี้เป็นยอดสุทธิ ยังไม่ระบุว่าใครต้องโอนให้ใคร
                 </p>
               </div>
               <div className="group-members">
-                <h3>หารด้วยกันในกลุ่มนี้</h3>
+                <h3>สมาชิกในกลุ่ม</h3>
                 <div className="member-chips">
                   {snapshot.group.members.map((member) => (
                     <span key={member}>{member}</span>
@@ -529,9 +529,9 @@ function GroupWorkspace({
                 <span className="empty-symbol" aria-hidden="true">
                   ÷
                 </span>
-                <h3>บิลแรก เริ่มจากใครดี?</h3>
+                <h3>ยังไม่มีรายการค่าใช้จ่าย</h3>
                 <p>
-                  เพิ่มค่าอาหาร ค่ารถ หรือค่าใช้จ่ายที่ออกให้เพื่อน
+                  เพิ่มค่าใช้จ่ายที่ออกให้เพื่อน เช่น ค่าอาหารหรือค่ารถ
                   <br />
                   ส่วนแบ่งและยอดสุทธิจะอยู่ตรงนี้
                 </p>
@@ -617,7 +617,7 @@ function GroupWorkspace({
                         aria-label={`ยืนยันลบ ${expense.description}`}
                       >
                         <p>
-                          ลบ “{expense.description}” ออกจากรายการและยอดสุทธิ?
+                          ลบ &quot;{expense.description}&quot; ออกจากรายการและยอดสุทธิ?
                         </p>
                         <div>
                           <button
@@ -649,7 +649,7 @@ function GroupWorkspace({
                                   { method: "DELETE" },
                                 );
                                 setConfirmDelete(null);
-                                setNotice(`ลบ “${expense.description}” แล้ว`);
+                                setNotice(`ลบ "${expense.description}" แล้ว`);
                                 await refresh();
                                 if (heading?.isConnected) heading.focus();
                               } catch (error) {
