@@ -94,6 +94,12 @@ async def browser_checks(
             await page.goto(web_url)
             entry = page.get_by_role("heading", name="คุณคือใคร?", exact=True)
             exit_profile = page.get_by_role("button", name="เปลี่ยนผู้ใช้", exact=True)
+            groups_home = page.get_by_role("heading", name="กลุ่มของฉัน", exact=True)
+            group_choices = page.get_by_role("region", name="เลือกกลุ่ม", exact=True)
+            back_to_groups = page.get_by_role(
+                "button", name="กลับไปกลุ่มของฉัน", exact=True
+            )
+            brand = page.get_by_role("link", name="SplitBill หน้าหลัก", exact=True)
             group = page.get_by_label("กลุ่ม", exact=True)
             form = page.get_by_test_id("expense-form")
             ledger = page.get_by_role("region", name="ยอดสุทธิของสมาชิก", exact=True)
@@ -123,6 +129,12 @@ async def browser_checks(
                 if await exit_profile.is_visible():
                     await leave_profile()
                 await choose_user(name)
+                await expect(group_choices.or_(group)).to_be_visible()
+                if await group_choices.is_visible():
+                    group_name = {"1": "Chiang Mai trip", "2": "Office lunch"}[group_id]
+                    await page.get_by_role(
+                        "button", name=group_name, exact=True
+                    ).click()
                 await expect(group).to_have_value(group_id)
                 await expect(form).to_be_visible()
                 await expect(ledger).to_be_visible()
@@ -214,6 +226,266 @@ async def browser_checks(
             ), "Profile exit retained the selected user"
             print(
                 "PASS entry chooser, no preselection/API reads, keyboard, tab-local reload and exit focus"
+            )
+
+            # Bob belongs to two groups. Choosing a profile must not also choose
+            # a group or read its detail, expenses or balances implicitly.
+            before_group_home = len(api_requests)
+            await choose_user("bob")
+            await expect(groups_home).to_be_visible()
+            await expect(groups_home).to_be_focused()
+            await expect(form).to_have_count(0)
+            await expect(group).to_have_count(0)
+            for name in ("Chiang Mai trip", "Office lunch"):
+                await expect(
+                    page.get_by_role("button", name=name, exact=True)
+                ).to_be_visible()
+            await page.evaluate(
+                "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+            )
+            assert all(
+                request.url == f"{api_url}/groups"
+                for request in api_requests[before_group_home:]
+                if request.method != "OPTIONS"
+            ), "Group home read a group before the user chose one"
+            for width, height, name in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+                await page.set_viewport_size({"width": width, "height": height})
+                await groups_home.click()
+                await page.evaluate("""async () => {
+                    await document.fonts.ready;
+                    await Promise.all(document.getAnimations()
+                        .filter(animation => Number.isFinite(animation.effect?.getTiming().iterations ?? 1))
+                        .map(animation => animation.finished.catch(() => {})));
+                }""")
+                await page.locator(".brand-mark").evaluate("image => image.decode()")
+                assert await page.evaluate(
+                    "document.documentElement.scrollWidth <= window.innerWidth"
+                ), f"Group home horizontal overflow at {width}px"
+                await page.screenshot(
+                    path=str(screenshot_dir / f"frontend-groups-{name}.png"),
+                    full_page=True,
+                )
+            for width in (375, 768, 1024):
+                await page.set_viewport_size({"width": width, "height": 1024})
+                assert await page.evaluate(
+                    "document.documentElement.scrollWidth <= window.innerWidth"
+                ), f"Group home horizontal overflow at {width}px"
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            before_group_reload = len(api_requests)
+            await page.reload()
+            await expect(groups_home).to_be_visible()
+            await expect(
+                page.get_by_role("banner").get_by_text("bob", exact=True)
+            ).to_be_visible()
+            await expect(form).to_have_count(0)
+            await page.evaluate(
+                "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+            )
+            assert all(
+                request.url == f"{api_url}/groups"
+                for request in api_requests[before_group_reload:]
+                if request.method != "OPTIONS"
+            ), "A normal reload selected Bob's first group implicitly"
+            chiang_mai = page.get_by_role("button", name="Chiang Mai trip", exact=True)
+            await chiang_mai.focus()
+            await chiang_mai.press("Enter")
+            await expect(group).to_have_value("1")
+            await expect(ledger).to_contain_text("carol")
+            await expect(back_to_groups).to_be_enabled()
+            await back_to_groups.click()
+            await expect(groups_home).to_be_focused()
+            await expect(form).to_have_count(0)
+            await expect(group).to_have_count(0)
+            await page.get_by_role("button", name="Office lunch", exact=True).click()
+            await expect(group).to_have_value("2")
+            await expect(ledger).to_contain_text("dan")
+            await expect(ledger).not_to_contain_text("alice")
+            await expect(rows).to_have_count(0)
+            print(
+                "PASS multi-group home, no implicit detail reads, normal reload, keyboard choice and clean return"
+            )
+
+            # A group change has the same draft-loss risk as changing a profile.
+            await switch_user("bob", "1")
+            await fill_expense("ร่างก่อนเปลี่ยนกลุ่ม", "100.00", "bob")
+            await form.get_by_role("radio", name="กำหนดจำนวนเอง", exact=True).check()
+            draft_shares = [("alice", "10.00"), ("bob", "20.00"), ("carol", "70.00")]
+            for member, share in draft_shares:
+                await form.get_by_label(f"จำนวนของ {member}", exact=False).fill(share)
+
+            async def expect_group_draft() -> None:
+                await expect(group).to_have_value("1")
+                await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value(
+                    "ร่างก่อนเปลี่ยนกลุ่ม"
+                )
+                await expect(
+                    form.get_by_label("จำนวนเงิน (บาท)", exact=True)
+                ).to_have_value("100.00")
+                await expect(form.get_by_label("จ่ายโดย", exact=False)).to_have_value(
+                    "bob"
+                )
+                await expect(
+                    form.get_by_role("radio", name="กำหนดจำนวนเอง", exact=True)
+                ).to_be_checked()
+                for member, share in draft_shares:
+                    await expect(
+                        form.get_by_label(f"จำนวนของ {member}", exact=False)
+                    ).to_have_value(share)
+
+            cancel_group_change = page.get_by_role(
+                "button", name="กลับไปแก้บิล", exact=True
+            )
+            discard_group_draft = page.get_by_role(
+                "button", name="ทิ้งร่างและเปลี่ยนกลุ่ม", exact=True
+            )
+            await back_to_groups.click()
+            await expect(cancel_group_change).to_be_focused()
+            await cancel_group_change.press("Enter")
+            await expect(back_to_groups).to_be_focused()
+            await expect_group_draft()
+            await group.select_option("2")
+            await expect(cancel_group_change).to_be_focused()
+            await cancel_group_change.press("Enter")
+            await expect(group).to_be_focused()
+            await expect_group_draft()
+            await brand.click()
+            await expect(cancel_group_change).to_be_focused()
+            await cancel_group_change.press("Enter")
+            await expect(brand).to_be_focused()
+            await expect_group_draft()
+            assert sql_count("ร่างก่อนเปลี่ยนกลุ่ม") == 0
+            await back_to_groups.click()
+            await discard_group_draft.click()
+            await expect(groups_home).to_be_focused()
+            await expect(form).to_have_count(0)
+            await page.get_by_role("button", name="Chiang Mai trip", exact=True).click()
+            await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value("")
+            await fill_expense("ร่างก่อนเปลี่ยนกลุ่ม", "100.00", "bob")
+            await group.select_option("2")
+            await discard_group_draft.click()
+            await expect(group).to_have_value("2")
+            await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value("")
+            await expect(form.get_by_label("จำนวนเงิน (บาท)", exact=True)).to_have_value(
+                ""
+            )
+            await expect(ledger).to_contain_text("dan")
+            await expect(ledger).not_to_contain_text("alice")
+            assert sql_count("ร่างก่อนเปลี่ยนกลุ่ม") == 0
+            print(
+                "PASS back, dropdown and brand draft guards preserve canceled values and discard only after confirmation"
+            )
+
+            # A real committed request for Bob's second group survives reload
+            # without being redirected to the new group chooser.
+            bob_posted: list[tuple[str, str]] = []
+            bob_committed = asyncio.Event()
+            bob_release = asyncio.Event()
+
+            async def lose_bob_response(route) -> None:
+                if route.request.method != "POST":
+                    await route.continue_()
+                    return
+                bob_posted.append(
+                    (
+                        route.request.headers.get("idempotency-key", ""),
+                        route.request.post_data or "",
+                    )
+                )
+                if len(bob_posted) == 1:
+                    response = await route.fetch()
+                    assert response.status == 201
+                    bob_committed.set()
+                    await bob_release.wait()
+                    await route.abort("failed")
+                else:
+                    await route.continue_()
+
+            await page.route(f"{api_url}/groups/2/expenses", lose_bob_response)
+            await fill_expense("บิลกลุ่มสองรอยืนยัน", "20.00", "bob")
+            await form.get_by_role("button", name="บันทึกค่าใช้จ่าย", exact=True).click()
+            await asyncio.wait_for(bob_committed.wait(), timeout=20)
+            for control in (exit_profile, back_to_groups, group):
+                await expect(control).to_be_disabled()
+            await expect(brand).to_have_attribute("aria-disabled", "true")
+            await brand.focus()
+            await brand.press("Enter")
+            await expect(group).to_have_value("2")
+            await expect(groups_home).to_have_count(0)
+            bob_release.set()
+            bob_retry = page.get_by_role(
+                "button", name="ลองส่งรายการเดิมอีกครั้ง", exact=True
+            )
+            await expect(bob_retry).to_be_enabled()
+            assert sql_count("บิลกลุ่มสองรอยืนยัน") == 1
+            bob_pending = await page.evaluate(
+                "sessionStorage.getItem('splitbill.pending.v1')"
+            )
+            assert bob_pending, "The unresolved group-two request was not retained"
+            before_pending_reload = len(api_requests)
+            await page.reload()
+            await expect(bob_retry).to_be_enabled()
+            await expect(group).to_have_value("2")
+            await expect(groups_home).to_have_count(0)
+            await expect(
+                page.get_by_role("banner").get_by_text("bob", exact=True)
+            ).to_be_visible()
+            for control in (exit_profile, back_to_groups, group):
+                await expect(control).to_be_disabled()
+            await expect(brand).to_have_attribute("aria-disabled", "true")
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.pending.v1')")
+                == bob_pending
+            ), "Group navigation changed the frozen unresolved request"
+            assert all(
+                not request.url.startswith(f"{api_url}/groups/1")
+                for request in api_requests[before_pending_reload:]
+            ), "Pending recovery fetched Bob's first group instead of its owner group"
+            async with page.expect_response(
+                lambda response: (
+                    response.request.method == "POST"
+                    and response.url == f"{api_url}/groups/2/expenses"
+                )
+            ) as bob_retry_info:
+                await bob_retry.click()
+            assert (await bob_retry_info.value).status == 200
+            await expect(rows).to_have_count(1)
+            await expect(back_to_groups).to_be_enabled()
+            await expect(group).to_be_enabled()
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.pending.v1')")
+                is None
+            )
+            assert (
+                len(bob_posted) == 2
+                and bob_posted[0] == bob_posted[1]
+                and bob_posted[0][0]
+            ), "Group-two recovery changed the original key or request body"
+            assert sql_count("บิลกลุ่มสองรอยืนยัน") == 1
+            await page.unroute(f"{api_url}/groups/2/expenses", lose_bob_response)
+            await page.reload()
+            await expect(groups_home).to_be_visible()
+            await expect(form).to_have_count(0)
+            bob_listing = await context.request.get(
+                f"{api_url}/groups/2/expenses", headers={"X-User": "bob"}
+            )
+            bob_expenses = await bob_listing.json()
+            assert len(bob_expenses) == 1
+            bob_removed = await context.request.delete(
+                f"{api_url}/groups/2/expenses/{bob_expenses[0]['id']}",
+                headers={"X-User": "bob"},
+            )
+            assert bob_removed.status == 204
+            with engine.connect() as connection:
+                assert (
+                    connection.execute(
+                        text(
+                            "SELECT count(*) FROM expenses WHERE group_id = 2 AND NOT deleted"
+                        )
+                    ).scalar_one()
+                    == 0
+                )
+            print(
+                "PASS real group-two pending recovery bypasses home, locks navigation and replays the same key once"
             )
 
             await switch_user("alice", "1")
@@ -492,7 +764,13 @@ async def browser_checks(
             ) as deletion_info:
                 await page.keyboard.press("Enter")
                 await asyncio.wait_for(delete_committed.wait(), timeout=20)
-                await expect(exit_profile).to_be_disabled()
+                for control in (exit_profile, back_to_groups, group):
+                    await expect(control).to_be_disabled()
+                await expect(brand).to_have_attribute("aria-disabled", "true")
+                await brand.focus()
+                await brand.press("Enter")
+                await expect(group).to_have_value("1")
+                await expect(groups_home).to_have_count(0)
                 delete_release.set()
             assert (await deletion_info.value).status == 204
             await expect(rows).to_have_count(2)
@@ -512,7 +790,7 @@ async def browser_checks(
                     is True
                 )
             print(
-                "PASS real payer deletion, locked profile exit, retained PostgreSQL row and refreshed list"
+                "PASS real payer deletion, locked group/profile/brand navigation, retained PostgreSQL row and refreshed list"
             )
 
             # Independent HTTP assertions distinguish a hidden UI control from authorization.
@@ -733,7 +1011,7 @@ async def browser_checks(
                 "PASS 375/390/768/1024/1440px overflow checks, reduced motion, no uncaught browser errors"
             )
             print(
-                f"Screenshots: {screenshot_dir} / frontend[-entry]-desktop.png, frontend[-entry]-mobile.png"
+                f"Screenshots: {screenshot_dir} / frontend[-entry|-groups]-desktop.png, frontend[-entry|-groups]-mobile.png"
             )
         except (AssertionError, PlaywrightError, TimeoutError) as error:
             failure_dir = Path(tempfile.mkdtemp(prefix="splitbill-frontend-failure-"))

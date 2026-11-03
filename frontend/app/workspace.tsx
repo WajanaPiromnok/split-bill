@@ -24,6 +24,11 @@ import { decodePending, PENDING_KEY } from "../lib/pending";
 
 const USERS = ["alice", "bob", "carol", "dan"];
 const PROFILE_KEY = "splitbill.user.v1";
+type LeaveGuard = (
+  next: () => void,
+  destination: "profile" | "group",
+  trigger: HTMLElement,
+) => void;
 type Snapshot = {
   group: GroupDetail;
   expenses: Expense[];
@@ -45,9 +50,11 @@ export default function Workspace() {
   const [profileError, setProfileError] = useState("");
   const [working, setWorking] = useState(false);
   const mutationBusyRef = useRef(false);
-  const exitGuardRef = useRef<(() => void) | null>(null);
+  const exitGuardRef = useRef<LeaveGuard | null>(null);
   const entryHeading = useRef<HTMLHeadingElement>(null);
   const focusEntry = useRef(false);
+  const groupHeading = useRef<HTMLHeadingElement>(null);
+  const focusGroup = useRef(false);
 
   useEffect(() => {
     // sessionStorage is tab-local and unavailable during server rendering.
@@ -95,7 +102,9 @@ export default function Workspace() {
             ? pending.group
             : groups.some((group) => group.id === current)
               ? current
-              : (groups[0]?.id ?? null),
+              : groups.length === 1
+                ? groups[0].id
+                : null,
         );
       })
       .catch((error) => {
@@ -111,10 +120,18 @@ export default function Workspace() {
     }
   }, [restored, user]);
 
+  useEffect(() => {
+    if (user && groupsState?.user === user && focusGroup.current) {
+      groupHeading.current?.focus();
+      if (groupHeading.current) focusGroup.current = false;
+    }
+  }, [user, groupsState, groupId]);
+
   function chooseUser(name: string) {
     try {
       sessionStorage.setItem(PROFILE_KEY, name);
       setProfileError("");
+      focusGroup.current = true;
       setUser(name);
     } catch {
       setProfileError(
@@ -142,6 +159,21 @@ export default function Workspace() {
   }, []);
 
   const groups = groupsState?.user === user ? groupsState.groups : null;
+
+  function navigate(
+    next: () => void,
+    destination: "profile" | "group",
+    trigger: HTMLElement,
+  ) {
+    if (pending || mutationBusyRef.current) return;
+    if (exitGuardRef.current) exitGuardRef.current(next, destination, trigger);
+    else next();
+  }
+
+  function chooseGroup(id: number | null) {
+    focusGroup.current = true;
+    setGroupId(id);
+  }
   function updatePending(value: PendingExpense | null) {
     if (value) sessionStorage.setItem(PENDING_KEY, JSON.stringify(value));
     else {
@@ -170,7 +202,22 @@ export default function Workspace() {
         ข้ามไปเนื้อหา
       </a>
       <header className="topbar">
-        <a href="#workspace" className="brand" aria-label="SplitBill หน้าหลัก">
+        <a
+          href="#workspace"
+          className="brand"
+          aria-label="SplitBill หน้าหลัก"
+          aria-disabled={pending || working ? true : undefined}
+          onClick={(event) => {
+            if (pending || mutationBusyRef.current) {
+              event.preventDefault();
+              return;
+            }
+            if (user && groupId !== null && groups && groups.length > 1) {
+              event.preventDefault();
+              navigate(() => chooseGroup(null), "group", event.currentTarget);
+            }
+          }}
+        >
           <Image
             className="brand-mark"
             src="/icon.svg"
@@ -205,11 +252,9 @@ export default function Workspace() {
                     ? "รอให้ทำรายการเสร็จก่อนเปลี่ยนผู้ใช้"
                     : undefined
               }
-              onClick={() => {
-                if (pending || mutationBusyRef.current) return;
-                if (exitGuardRef.current) exitGuardRef.current();
-                else exitProfile();
-              }}
+              onClick={(event) =>
+                navigate(exitProfile, "profile", event.currentTarget)
+              }
             >
               เปลี่ยนผู้ใช้
             </button>
@@ -218,7 +263,7 @@ export default function Workspace() {
       </header>
       <main
         id="workspace"
-        className={`page-shell${user === null ? " entry-shell" : ""}`}
+        className={`page-shell${user === null ? " entry-shell" : groupId === null ? " groups-shell" : ""}`}
       >
         {profileError && (
           <div className="notice error" role="alert">
@@ -246,19 +291,7 @@ export default function Workspace() {
                     {name[0].toUpperCase()}
                   </span>
                   <span>{name}</span>
-                  <svg
-                    aria-hidden="true"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m9 5 7 7-7 7" />
-                  </svg>
+                  <Chevron />
                 </button>
               ))}
             </div>
@@ -266,44 +299,73 @@ export default function Workspace() {
           </section>
         ) : (
           <>
-            <div className="group-heading">
-              <div>
-                <p className="context-label">ค่าใช้จ่ายของกลุ่ม</p>
-                <h1>
-                  {groups?.find((group) => group.id === groupId)?.name ??
-                    (groups ? "เลือกกลุ่มของคุณ" : "มาแบ่งบิลกัน")}
-                </h1>
-              </div>
-              <label className="group-control">
-                <span>กลุ่ม</span>
-                <select
-                  aria-label="กลุ่ม"
-                  value={groupId ?? ""}
-                  disabled={!groups || !!pending || working}
-                  onChange={(event) => {
-                    if (!pending && !mutationBusyRef.current)
-                      setGroupId(Number(event.target.value));
-                  }}
-                >
-                  {!groups?.length && (
-                    <option value="">
-                      {groups ? "ยังไม่มีกลุ่ม" : "กำลังโหลดกลุ่ม…"}
-                    </option>
-                  )}
-                  {pending &&
-                    !groups?.some((group) => group.id === pending.group) && (
-                      <option value={pending.group}>
-                        กลุ่ม #{pending.group} · รายการรอยืนยัน
+            {groupId !== null && groups && groups.length > 1 && (
+              <button
+                className="group-home-link"
+                disabled={!!pending || working}
+                onClick={(event) =>
+                  navigate(
+                    () => chooseGroup(null),
+                    "group",
+                    event.currentTarget,
+                  )
+                }
+              >
+                <Chevron /> กลับไปกลุ่มของฉัน
+              </button>
+            )}
+            {groupId !== null ? (
+              <div className="group-heading">
+                <div>
+                  <p className="context-label">ค่าใช้จ่ายของกลุ่ม</p>
+                  <h1 ref={groupHeading} tabIndex={-1}>
+                    {groups?.find((group) => group.id === groupId)?.name ??
+                      (groups ? "เลือกกลุ่มของคุณ" : "มาแบ่งบิลกัน")}
+                  </h1>
+                </div>
+                <label className="group-control">
+                  <span>กลุ่ม</span>
+                  <select
+                    aria-label="กลุ่ม"
+                    value={groupId ?? ""}
+                    disabled={!groups || !!pending || working}
+                    onChange={(event) => {
+                      const id = Number(event.target.value);
+                      if (id !== groupId)
+                        navigate(
+                          () => chooseGroup(id),
+                          "group",
+                          event.currentTarget,
+                        );
+                    }}
+                  >
+                    {!groups?.length && (
+                      <option value="">
+                        {groups ? "ยังไม่มีกลุ่ม" : "กำลังโหลดกลุ่ม…"}
                       </option>
                     )}
-                  {groups?.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                    {pending &&
+                      !groups?.some((group) => group.id === pending.group) && (
+                        <option value={pending.group}>
+                          กลุ่ม #{pending.group} · รายการรอยืนยัน
+                        </option>
+                      )}
+                    {groups?.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <div className="groups-intro">
+                <h1 ref={groupHeading} tabIndex={-1}>
+                  กลุ่มของฉัน
+                </h1>
+                <p>เลือกกลุ่มเพื่อดูค่าใช้จ่ายและเริ่มแบ่งบิล</p>
+              </div>
+            )}
             {storageError && (
               <div className="notice error" role="alert">
                 <p>{storageError}</p>
@@ -340,6 +402,24 @@ export default function Workspace() {
               </div>
             )}
             {!groups && !groupsError && <Loading />}
+            {groups && groups.length > 1 && groupId === null && (
+              <section className="groups-home" aria-label="เลือกกลุ่ม">
+                <p className="groups-count">{groups.length} กลุ่ม</p>
+                <ul className="group-choices">
+                  {groups.map((group) => (
+                    <li key={group.id}>
+                      <button
+                        className="profile-choice group-choice"
+                        onClick={() => chooseGroup(group.id)}
+                      >
+                        <span>{group.name}</span>
+                        <Chevron />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {groups?.length === 0 && !pending && (
               <section className="empty-state">
                 <h2>ยังไม่มีกลุ่มสำหรับ {user}</h2>
@@ -356,7 +436,6 @@ export default function Workspace() {
                 storageError={!!storageError}
                 busyRef={mutationBusyRef}
                 exitGuardRef={exitGuardRef}
-                onExit={exitProfile}
                 onWorkingChange={setWorking}
               />
             )}
@@ -368,6 +447,24 @@ export default function Workspace() {
         <span>เห็นส่วนแบ่งชัด ครบทุกสตางค์</span>
       </footer>
     </>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 5 7 7-7 7" />
+    </svg>
   );
 }
 
@@ -390,7 +487,6 @@ function GroupWorkspace({
   storageError,
   busyRef,
   exitGuardRef,
-  onExit,
   onWorkingChange,
 }: {
   user: string;
@@ -399,8 +495,7 @@ function GroupWorkspace({
   updatePending: (value: PendingExpense | null) => boolean;
   storageError: boolean;
   busyRef: RefObject<boolean>;
-  exitGuardRef: RefObject<(() => void) | null>;
-  onExit: () => void;
+  exitGuardRef: RefObject<LeaveGuard | null>;
   onWorkingChange: (working: boolean) => void;
 }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -413,7 +508,12 @@ function GroupWorkspace({
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const form = useRef<ExpenseFormHandle>(null);
-  const [confirmExit, setConfirmExit] = useState(false);
+  const [destination, setDestination] = useState<"profile" | "group" | null>(
+    null,
+  );
+  const confirmExit = destination !== null;
+  const nextActionRef = useRef<(() => void) | null>(null);
+  const navigationTriggerRef = useRef<HTMLElement | null>(null);
   const exitCancel = useRef<HTMLButtonElement>(null);
   const loadSequence = useRef(0);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -421,22 +521,25 @@ function GroupWorkspace({
   const path = `/groups/${groupId}`;
 
   useEffect(() => {
-    const requestExit = () => {
+    const requestExit: LeaveGuard = (next, target, trigger) => {
       if (busyRef.current || pending) return;
       if (form.current?.isDirty) {
         setConfirmDelete(null);
-        setConfirmExit(true);
-      } else onExit();
+        nextActionRef.current = next;
+        navigationTriggerRef.current = trigger;
+        setDestination(target);
+        exitCancel.current?.focus();
+      } else next();
     };
     exitGuardRef.current = requestExit;
     return () => {
       if (exitGuardRef.current === requestExit) exitGuardRef.current = null;
     };
-  }, [busyRef, exitGuardRef, onExit, pending]);
+  }, [busyRef, exitGuardRef, pending]);
 
   useEffect(() => {
     if (confirmExit) exitCancel.current?.focus();
-  }, [confirmExit]);
+  }, [destination, confirmExit]);
 
   async function fetchSnapshot(signal?: AbortSignal): Promise<Snapshot> {
     const [group, expenses, balances] = await Promise.all([
@@ -551,14 +654,19 @@ function GroupWorkspace({
           aria-labelledby="exit-heading"
         >
           <h2 id="exit-heading">มีร่างบิลที่ยังไม่ได้บันทึก</h2>
-          <p>ถ้าเปลี่ยนผู้ใช้ ข้อมูลที่กรอกไว้ในบิลนี้จะถูกล้าง</p>
+          <p>
+            ถ้าเปลี่ยน{destination === "profile" ? "ผู้ใช้" : "กลุ่ม"}{" "}
+            ข้อมูลที่กรอกไว้ในบิลนี้จะถูกล้าง
+          </p>
           <div className="exit-actions">
             <button
               className="button secondary"
               ref={exitCancel}
               onClick={() => {
-                setConfirmExit(false);
-                document.getElementById("change-user")?.focus();
+                nextActionRef.current = null;
+                setDestination(null);
+                if (navigationTriggerRef.current?.isConnected)
+                  navigationTriggerRef.current.focus();
               }}
             >
               กลับไปแก้บิล
@@ -567,10 +675,10 @@ function GroupWorkspace({
               className="button destructive"
               disabled={saving || deleting !== null || !!pending}
               onClick={() => {
-                if (!busyRef.current && !pending) onExit();
+                if (!busyRef.current && !pending) nextActionRef.current?.();
               }}
             >
-              ทิ้งร่างและเปลี่ยนผู้ใช้
+              ทิ้งร่างและเปลี่ยน{destination === "profile" ? "ผู้ใช้" : "กลุ่ม"}
             </button>
           </div>
         </section>

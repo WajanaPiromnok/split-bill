@@ -75,6 +75,8 @@ jobs:
             design-system/frontend-mobile.png
             design-system/frontend-entry-desktop.png
             design-system/frontend-entry-mobile.png
+            design-system/frontend-groups-desktop.png
+            design-system/frontend-groups-mobile.png
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4

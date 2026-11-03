@@ -232,6 +232,61 @@ a {
   min-height: calc(100svh - 204px);
   padding-top: clamp(40px, 9vh, 96px);
 }
+.page-shell.groups-shell {
+  min-height: calc(100svh - 204px);
+  padding-top: 48px;
+}
+.groups-intro,
+.groups-home {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.groups-intro p {
+  margin-top: 8px;
+  color: var(--color-muted);
+}
+.groups-count {
+  margin: 32px 0 12px;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+.group-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.profile-choice.group-choice {
+  min-height: 80px;
+  padding: 20px 24px;
+  font-size: 18px;
+}
+.group-choice > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.group-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 12px;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+.group-home-link svg {
+  transform: rotate(180deg);
+}
+.group-home-link:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.group-home-link:disabled {
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
 .profile-entry {
   width: min(100%, 440px);
   margin: 0 auto;
@@ -1009,6 +1064,15 @@ details[open] summary::after {
   .page-shell.entry-shell {
     padding-top: 40px;
     min-height: calc(100svh - 192px);
+  }
+  .page-shell.groups-shell {
+    padding-top: 32px;
+    min-height: calc(100svh - 208px);
+  }
+  .profile-choice.group-choice {
+    min-height: 72px;
+    padding: 16px;
+    font-size: 16px;
   }
   .profile-entry h1 {
     font-size: 26px;
