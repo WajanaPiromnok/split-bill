@@ -1,70 +1,169 @@
 # SplitBill
 
-SplitBill is a shared-expense take-home project. The backend implements group access, exact expense allocation, idempotent creation, payer-only soft deletion, and zero-sum member balances, with a reproducible handoff for frontend development.
+SplitBill เป็นเว็บแบ่งค่าใช้จ่ายในกลุ่มครับ ใส่ว่าใครจ่าย ใครหาร แล้วดูได้ว่าแต่ละคนต้องรับผิดชอบเท่าไหร่ และตอนนี้ใครต้องได้รับเงินคืนหรือจ่ายคืน
 
-## Current scope
+ผมใช้ FastAPI กับ PostgreSQL สำหรับ backend และ Next.js, TypeScript, Tailwind CSS สำหรับ frontend เรื่องที่ตั้งใจทำให้ตรงตั้งแต่แรกคือยอดเงินต้องไม่หายไปแม้แต่สตางค์เดียว กดส่งซ้ำแล้วต้องไม่เกิดบิลซ้ำ และคนที่ไม่อยู่ในกลุ่มต้องเข้าถึงข้อมูลไม่ได้
 
-The backend contains PostgreSQL migrations, repeatable seed data, and all six required API endpoints:
+## ทำอะไรได้แล้วบ้าง
 
-| Endpoint | Status |
-| --- | --- |
-| `GET /groups` | Baseline |
-| `GET /groups/{group_id}` | Baseline |
-| `POST /groups/{group_id}/expenses` | Implemented; local checks passed |
-| `GET /groups/{group_id}/expenses` | Implemented; local checks passed |
-| `DELETE /groups/{group_id}/expenses/{expense_id}` | Implemented; payer-only soft deletion |
-| `GET /groups/{group_id}/balances` | Implemented; exact paid-minus-owed member totals |
-| Next.js frontend | Not implemented |
+หน้าแรกให้เลือก `alice`, `bob`, `carol` หรือ `dan` ก่อน จากนั้นแสดงเฉพาะกลุ่มของคนนั้น ถ้ามีกลุ่มเดียวจะเข้าให้เลย ถ้ามีหลายกลุ่มจะให้เลือกจากหน้า "กลุ่มของฉัน"
 
-An existing group that the requester cannot access returns `404`, using the same response as an unknown group. This avoids disclosing group existence. `X-User` selects one of the seeded users; it is an assessment convention, not full authentication.
+ในกลุ่มเพิ่มบิลได้ทั้งหารเท่ากันและกำหนดจำนวนเอง มีส่วนแบ่งให้ดูก่อนบันทึก ถ้ายอด exact ยังไม่ตรงกับบิล ปุ่มบันทึกจะกดไม่ได้ ด้านข้างเป็นยอดสุทธิของสมาชิก และด้านล่างเป็นรายการค่าใช้จ่ายล่าสุด คนที่จ่ายเงินจะเห็นปุ่มลบบิลของตัวเอง
 
-See [the API contract](docs/api-contract.md) for requests, responses and errors, and [the Git workflow](docs/git-workflow.md) for milestone and handoff rules. The generated [OpenAPI schema](docs/openapi.json) describes implemented endpoints only.
+| API                                               | ใช้ทำอะไร                        |
+| ------------------------------------------------- | -------------------------------- |
+| `GET /groups`                                     | ดูกลุ่มของผู้ใช้ที่ส่ง request   |
+| `GET /groups/{group_id}`                          | ดูชื่อกลุ่มและสมาชิก             |
+| `POST /groups/{group_id}/expenses`                | เพิ่มค่าใช้จ่าย                  |
+| `GET /groups/{group_id}/expenses`                 | ดูค่าใช้จ่าย เรียงรายการใหม่ก่อน |
+| `DELETE /groups/{group_id}/expenses/{expense_id}` | ลบค่าใช้จ่าย เฉพาะคนที่จ่าย      |
+| `GET /groups/{group_id}/balances`                 | ดูยอดสุทธิของสมาชิกแต่ละคน       |
 
-## System stack
+รายละเอียด request, response และ error อยู่ใน [API contract](docs/api-contract.md) และ [OpenAPI schema](docs/openapi.json) หรือเปิด `/docs` ตอนรัน backend ได้เลย
 
-The [architecture guide](docs/architecture/README.md) explains the implemented backend and the planned Next.js / TypeScript / Tailwind CSS frontend. The planned browser UI calls FastAPI directly over HTTP/JSON. PostgreSQL stores the application data; a separate database supports integration tests. Hosting has not been selected.
+## ภาพรวมระบบ
+
+Browser เรียก FastAPI ตรงผ่าน HTTP/JSON แล้ว backend ตรวจสิทธิ์และกฎของบิลก่อนบันทึกลง PostgreSQL ส่วน Alembic กับ seed รันตอนเตรียมระบบ การทดสอบใช้ฐานข้อมูลแยกจากข้อมูลที่เปิดใช้งานในแอป
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/stack-dark.png">
-  <img alt="SplitBill stack: planned frontend, implemented FastAPI backend, PostgreSQL, setup tools and GitHub Actions checks" src="docs/architecture/stack.png">
+  <img alt="ภาพรวม SplitBill: Next.js เรียก FastAPI และ PostgreSQL พร้อม migration, seed และ GitHub Actions" src="docs/architecture/stack.png">
 </picture>
 
-[Open the self-contained HTML](docs/architecture/stack.html) · [Light PNG](docs/architecture/stack.png) · [Dark PNG](docs/architecture/stack-dark.png)
+[เปิดแผนภาพ HTML แบบ offline](docs/architecture/stack.html) · [ภาพพื้นสว่าง](docs/architecture/stack.png) · [ภาพพื้นมืด](docs/architecture/stack-dark.png) · [คำอธิบายระบบ](docs/architecture/README.md)
 
-## Requirements
+| ส่วน          | ที่ใช้                                                                          |
+| ------------- | ------------------------------------------------------------------------------- |
+| หน้าเว็บ      | Next.js, React, TypeScript, Tailwind CSS                                        |
+| API           | Python 3.12 ขึ้นไป, FastAPI, Uvicorn                                            |
+| ฐานข้อมูล     | PostgreSQL 16, SQLAlchemy 2, psycopg 3                                          |
+| เตรียม schema | Alembic และ Python seed script                                                  |
+| ตรวจงาน       | pytest, Ruff, ESLint, TypeScript, Node tests และ Playwright กับ PostgreSQL จริง |
+| CI            | GitHub Actions                                                                  |
 
-- Python 3.12 or later; use a matching interpreter when creating the virtual environment.
-- A running PostgreSQL 16 server, with separate application and test databases.
-- Git. Node.js is not required for this backend milestone.
+ไฟล์หลักในโปรเจกต์อยู่ประมาณนี้ครับ
 
-If databases do not exist, connect as a local PostgreSQL administrator and create them. The following credentials are local placeholders; choose a password and put the same value in your untracked `.env`:
-
-```sql
-CREATE ROLE splitbill LOGIN PASSWORD 'replace-with-local-password';
-CREATE DATABASE splitbill OWNER splitbill;
-CREATE DATABASE splitbill_test OWNER splitbill;
+```text
+backend/
+  splitbill/      API, business rules, data access และ seed
+  alembic/       migrations
+  tests/         pytest รวมเคสที่ใช้ PostgreSQL จริง
+frontend/
+  app/           หน้าเว็บ ฟอร์ม และ styles
+  lib/           API client, คำนวณเงิน และ pending request
+scripts/         คำสั่งตรวจ backend และทดสอบทั้งระบบ
+docs/            API contract, architecture และแผนพัฒนา
+design-system/   แบบอ้างอิงและภาพจากแอปจริง
+AI_NOTES.md      การใช้ AI, ข้อผิดพลาดที่พบ และวิธีตรวจแก้
 ```
 
-## Fresh-clone setup
+## เตรียมเครื่อง
 
-Run from the repository root:
+- Python 3.12 ขึ้นไป ตัวอย่างคำสั่งใช้ `python3.12` ถ้าเครื่องมี 3.13 หรือใหม่กว่าให้เปลี่ยนชื่อคำสั่งตามที่ติดตั้ง
+- PostgreSQL 16 ที่รันอยู่ พร้อมบัญชีที่สร้าง role และ database ได้
+- Node.js 24 LTS หรือเวอร์ชันที่โปรเจกต์รองรับในช่วง 24 ถึง 26, npm และ Git
+
+## เริ่มจาก clone มาเทสต์ในเครื่อง
+
+คนที่ clone ใช้ PostgreSQL และรหัสที่ตั้งในเครื่องของตัวเองครับ ข้อมูลตัวอย่างสร้างจาก seed ได้ จึงไม่ต้องใช้รหัสหรือไฟล์ `.env` ของผู้เขียน โดย `localhost` ในตัวอย่างหมายถึงเครื่องของคนที่รัน
+
+ทำตามขั้นตอน 1 ถึง 4 ก่อน แล้วไปที่ [ติดตั้งและรัน backend](#รัน-backend), [รัน frontend](#รัน-frontend) และ [รัน tests](#รัน-tests-และ-checks) ถ้าต้องการตรวจ backend tests อย่างเดียว ติดตั้ง dependencies แล้วไปส่วน tests ได้เลย ไม่ต้องเปิด Uvicorn หรือ frontend
+
+### 1. Clone branch และเข้าโฟลเดอร์โปรเจกต์
+
+```sh
+git clone https://github.com/WajanaPiromnok/split-bill.git
+cd split-bill
+```
+
+Repository ยังเป็น private จึงต้องมีสิทธิ์อ่านก่อน clone คำสั่งต่อจากนี้เริ่มที่ root ของ repository หรือโฟลเดอร์ `split-bill` ที่มี `README.md`, `backend/` และ `frontend/`
+
+### 2. สร้าง role ตั้งรหัส และสร้างฐานข้อมูล
+
+เปิด PostgreSQL 16 ให้ทำงานก่อน แล้วเข้า `psql` ด้วยบัญชี admin ของ PostgreSQL ในเครื่อง ตัวอย่างนี้ใช้ชื่อ `postgres`
+
+```sh
+psql -h localhost -p 5432 -U postgres -d postgres -W
+```
+
+ถ้า admin ของเครื่องใช้ชื่ออื่น ให้เปลี่ยน `-U postgres` ให้ตรง เช่น บางเครื่องที่ติดตั้งผ่าน Homebrew ใช้ชื่อบัญชีของเจ้าของเครื่อง รหัสที่คำสั่งตัวอย่างถามเป็นรหัสของ admin หากเครื่องใช้ local socket หรือ peer โดยไม่ได้ตั้งรหัส admin ให้เข้าด้วยวิธีของการติดตั้งนั้น เช่น `psql -d postgres` บนเครื่องที่กำหนดให้บัญชีปัจจุบันเป็น admin แล้ว
+
+เมื่อเห็น prompt ของ `psql` แล้ว รันชุดนี้ภายใน `psql`
+
+```psql
+SHOW server_version;
+CREATE ROLE splitbill LOGIN;
+\password splitbill
+CREATE DATABASE splitbill OWNER splitbill;
+CREATE DATABASE splitbill_test OWNER splitbill;
+\q
+```
+
+`SHOW server_version` ควรแสดง `16.x` ส่วน `\password splitbill` จะให้ตั้งรหัสใหม่ของ role `splitbill` และยืนยันอีกครั้งโดยไม่แสดงค่าที่พิมพ์ จำรหัสนี้ไว้ใส่ใน `.env` ดูวิธีใช้ใน [คู่มือ psql](https://www.postgresql.org/docs/16/app-psql.html#APP-PSQL-META-COMMAND-PASSWORD)
+
+ฐาน `splitbill` ใช้กับแอป ส่วน `splitbill_test` ใช้กับ tests ทั้งสองฐานมี `splitbill` เป็นเจ้าของ เมื่อ `\q` แล้วจะกลับมาที่ terminal ปกติ จึงค่อยรันคำสั่ง shell ในขั้นถัดไป
+
+ถ้ามี role หรือ database ชื่อเหล่านี้อยู่แล้ว ให้ใช้ของเดิมที่คุณมีสิทธิ์ หรือเลือกชื่อใหม่แล้วแก้ทั้ง `.env` และชื่อในคำสั่ง `psql` ที่เหลือให้ตรง โดยแยกฐานแอปกับฐานทดสอบคนละชื่อเหมือนเดิม ไม่ต้องลบฐานเดิมเพื่อทำตามตัวอย่าง
+
+### 3. สร้างและแก้ `.env` ของเครื่องตัวเอง
+
+ที่ root ของ repository รัน
 
 ```sh
 cp .env.example .env
+chmod 600 .env
+```
+
+เปิด `.env` แล้วแก้สามบรรทัดนี้ โดยแทน `replace-with-local-password` ทั้งสองจุดด้วยรหัสของ role `splitbill` ที่เพิ่งตั้ง
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://splitbill:replace-with-local-password@localhost:5432/splitbill
+TEST_DATABASE_URL=postgresql+psycopg://splitbill:replace-with-local-password@localhost:5432/splitbill_test
+CORS_ORIGINS=http://localhost:3000
+```
+
+รหัสทั้งสอง URL เป็นรหัสเดียวกันเพราะใช้ role เดียวกัน ส่วนชื่อฐานท้าย URL ต้องต่างกันตามตัวอย่าง ค่า `replace-with-local-password` เป็นข้อความให้แทนที่ ไม่ใช่รหัสที่ใช้เชื่อมต่อได้จริง
+
+ถ้ารหัสมีอักขระพิเศษ เช่น `@`, `:`, `/`, `#` หรือ `%` ต้อง percent-encode เฉพาะส่วนรหัสก่อนใส่ URL ใช้คำสั่งนี้เพื่อแปลงได้ โดยพิมพ์รหัสในช่องถามแล้วนำผลไปแทนส่วนรหัสของทั้งสอง URL
+
+```sh
+python3.12 -c 'from getpass import getpass; from urllib.parse import quote; print(quote(getpass("PostgreSQL password: "), safe=""))'
+```
+
+ตอน `psql` ถาม Password ให้ใช้รหัสเดิมที่ตั้งไว้ ส่วนค่าที่ encode ใช้เฉพาะใน URL ของ `.env` เท่านั้น ไฟล์ `.env` อยู่ใน `.gitignore` และใช้กับเครื่องตัวเอง จึงไม่ต้อง commit ไฟล์นี้
+
+| ตัวแปร              | ใช้กับอะไร                                                           |
+| ------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`      | ฐานข้อมูลแอป ใช้ scheme `postgresql+psycopg://`                      |
+| `TEST_DATABASE_URL` | ฐานทดสอบ PostgreSQL 16 ที่แยกจากแอป                                  |
+| `CORS_ORIGINS`      | origin ของ frontend ที่อนุญาต ค่าเริ่มต้นคือ `http://localhost:3000` |
+
+Backend อ่าน `.env` ที่ root ของ repository ถ้ามี environment variable ชื่อเดียวกันใน terminal ค่านั้นจะมีผลก่อน `.env` หลังเปลี่ยนค่าต้องเริ่ม backend ใหม่
+
+### 4. เช็กว่าใช้รหัสใหม่เข้าทั้งสองฐานได้
+
+รันจาก terminal ปกติ คำสั่ง `-c` จะอ่านข้อมูลแล้วออกให้เลย
+
+```sh
+psql -h localhost -p 5432 -U splitbill -d splitbill -W -c 'SELECT current_user, current_database();'
+psql -h localhost -p 5432 -U splitbill -d splitbill_test -W -c 'SELECT current_user, current_database();'
+```
+
+แต่ละคำสั่งจะถามรหัสของ `splitbill` ให้กรอกเฉพาะรหัสผ่าน ไม่ต้องวาง connection URL ทั้งบรรทัด ผลควรได้ผู้ใช้ `splitbill` และชื่อฐาน `splitbill` / `splitbill_test` ตามลำดับ
+
+ถ้าได้ `password authentication failed` ให้ตรวจรหัสและชื่อ role ก่อน ส่วน `database does not exist` ให้ตรวจชื่อฐานในขั้นที่ 2 และ URL ใน `.env` ถ้าใส่รหัสอะไรก็เข้าได้ ให้ตรวจ authentication rules ใน `pg_hba.conf` และใช้ `scram-sha-256` สำหรับ TCP connection ที่ใช้ทดสอบ
+
+## รัน backend
+
+จาก root ของ repository ติดตั้งตาม lock file ก่อน
+
+```sh
 python3.12 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.lock
 backend/.venv/bin/python -m pip install --no-deps -e './backend[dev]'
 ```
 
-An installed Python 3.13 or newer can replace `python3.12`. Edit `.env` so `DATABASE_URL` and `TEST_DATABASE_URL` match your PostgreSQL credentials. Settings read the root `.env`; environment variables take precedence.
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | Application database, using `postgresql+psycopg://` |
-| `TEST_DATABASE_URL` | Dedicated PostgreSQL 16 test database |
-| `CORS_ORIGINS` | Allowed frontend origins; default example is `http://localhost:3000` |
-
-Apply migrations, seed, and start the API:
+จากนั้นสร้างตาราง ใส่ข้อมูลตัวอย่าง และเปิด API
 
 ```sh
 cd backend
@@ -73,9 +172,16 @@ cd backend
 .venv/bin/uvicorn splitbill.app:app --reload
 ```
 
-Seed users are `alice`, `bob`, `carol`, and `dan`. Group `1`, **Chiang Mai trip**, contains alice/bob/carol; group `2`, **Office lunch**, contains bob/dan. Re-running the seed command must retain this baseline without duplicate memberships.
+API อยู่ที่ `http://127.0.0.1:8000` ดู Swagger ได้ที่ `http://127.0.0.1:8000/docs` และ schema ปัจจุบันที่ `/openapi.json`
 
-The API is available at `http://127.0.0.1:8000`; interactive documentation is at `/docs` and the live schema at `/openapi.json`.
+Seed มีผู้ใช้ `alice`, `bob`, `carol`, `dan` และสองกลุ่มนี้ รัน seed ซ้ำได้โดยไม่สร้างสมาชิกซ้ำ
+
+| กลุ่ม | ชื่อ            | สมาชิก            |
+| ----- | --------------- | ----------------- |
+| `1`   | Chiang Mai trip | alice, bob, carol |
+| `2`   | Office lunch    | bob, dan          |
+
+ลองอ่านกลุ่มผ่าน terminal ได้ดังนี้
 
 ```sh
 curl -i -H 'X-User: alice' http://127.0.0.1:8000/groups
@@ -83,75 +189,183 @@ curl -i -H 'X-User: alice' http://127.0.0.1:8000/groups/1
 curl -i -H 'X-User: alice' http://127.0.0.1:8000/groups/2
 ```
 
-The last request is expected to return `404`. Missing or unknown `X-User` values are expected to return `401`.
+สองคำสั่งแรกจะได้กลุ่มของ Alice ส่วนคำสั่งสุดท้ายได้ `404` เพราะ Alice ไม่อยู่กลุ่ม 2 ถ้าไม่ส่ง `X-User` หรือส่งชื่อที่ไม่มีจะได้ `401`
 
-## Checks
-
-From the repository root, set `TEST_DATABASE_URL` to your dedicated test database and run the suite with one command:
+ลองเพิ่มบิล `100.00` ที่ Alice จ่ายและหารสามคนได้ด้วยคำสั่งนี้
 
 ```sh
-export TEST_DATABASE_URL='postgresql+psycopg://splitbill:replace-with-local-password@localhost:5432/splitbill_test'
+curl -i -X POST http://127.0.0.1:8000/groups/1/expenses \
+  -H 'X-User: alice' \
+  -H 'Idempotency-Key: dinner-example-001' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "description": "มื้อเย็นกับเพื่อน",
+    "paid_by": "alice",
+    "amount": "100.00",
+    "split": {
+      "type": "equal",
+      "members": ["alice", "bob", "carol"]
+    }
+  }'
+```
+
+ครั้งแรกได้ `201` และ shares เป็น `33.34`, `33.33`, `33.33` ตามลำดับ ถ้าลองคำสั่งเดิมด้วย key เดิมอีกครั้งจะได้บิลเดิมกับ `200` ถ้าเป็นบิลใหม่ให้เปลี่ยน key ด้วย
+
+ถ้าจะลองเพิ่มอีกบิลแบบกำหนดจำนวนเอง ให้เปลี่ยน `Idempotency-Key` เป็น `dinner-example-002` และใช้ค่านี้แทนค่า `split` ใน body เดิม ส่วนแบ่งต้องรวมได้ `100.00`
+
+```json
+{
+  "type": "exact",
+  "shares": { "alice": "50.00", "bob": "30.00", "carol": "20.00" }
+}
+```
+
+ดูตัวอย่าง response และ error ของแต่ละกรณีใน [API contract](docs/api-contract.md)
+
+## รัน frontend
+
+เปิด terminal อีกอัน จาก root ของ repository แล้วรัน
+
+```sh
+cd frontend
+cp .env.example .env.local
+npm ci
+npm run dev
+```
+
+เปิด `http://localhost:3000` แล้วเลือกผู้ใช้ได้เลย ค่า `NEXT_PUBLIC_API_URL` ใน `frontend/.env.local` ชี้ไป `http://127.0.0.1:8000` ถ้าเปลี่ยนพอร์ตหรือที่อยู่ API ให้แก้ค่านี้และเริ่ม Next ใหม่ ส่วน backend ต้องอนุญาต origin ของหน้าเว็บใน `CORS_ORIGINS` ด้วย
+
+ไฟล์ config ของ frontend มีเฉพาะ URL ของ API รหัสฐานข้อมูลเก็บไว้ใน `.env` ที่ root เท่านั้น
+
+Browser จำผู้ใช้ไว้ในแท็บเดิม เมื่อรีเฟรชคนที่มีหลายกลุ่มจะกลับมาหน้า "กลุ่มของฉัน" ปุ่ม "เปลี่ยนผู้ใช้" ใช้กลับไปเลือกชื่ออีกครั้ง ถ้ามีร่างบิล ระบบถามก่อนทิ้งร่าง ส่วนบิลที่ยังไม่รู้ว่าส่งสำเร็จหรือไม่จะเก็บ user, group, body และ key เดิมไว้เพื่อส่งซ้ำ แม้จะรีเฟรชก็กลับมารายการนั้นได้
+
+[แนวทาง UI](DESIGN.md), [แผน frontend](docs/frontend-plan.md) และ [ภาพอ้างอิง](design-system/README.md) มีรายละเอียดเพิ่มเติม ภาพตัวอย่างด้านล่างมาจากแอปจริงกับข้อมูลจำลองใน schema ทดสอบที่แยกไว้
+
+![หน้า SplitBill บน desktop](design-system/frontend-desktop.png)
+
+[ดูภาพ mobile](design-system/frontend-mobile.png)
+
+## วิธีคิดเรื่องเงิน
+
+ผมส่งจำนวนเงินผ่าน API เป็น string เช่น `"1000.00"` แล้วใช้ `Decimal` ใน Python และ `NUMERIC(12,2)` ใน PostgreSQL เพื่อเก็บค่าถึงหน่วยสตางค์ ฝั่ง frontend แปลง string เป็นจำนวนเต็มหน่วยสตางค์ด้วย `BigInt` แล้วค่อยจัดรูปแบบเป็น `1,000.00` ตอนแสดงผล วิธีนี้ทำให้ `0.10 + 0.20` ได้ `0.30` โดยไม่ผ่าน `float`, `Number` หรือ `parseFloat` ในการคำนวณเงิน
+
+บิลต้องมากกว่า `0` และไม่เกิน `9999999999.99` รับเลข ASCII แบบปกติที่มีทศนิยมไม่เกินสองตำแหน่ง ความยาวไม่เกิน 64 ตัวอักษร ค่าอย่าง `"10.005"` จะถูกปฏิเสธก่อนเก็บลงฐานข้อมูล ส่วนแบ่งของสมาชิกเป็น `0.00` ได้ และ API ส่งเงินกลับเป็น string สองตำแหน่งเสมอ
+
+เวลาหารเท่ากัน ผมคำนวณในหน่วยสตางค์ด้วยผลหารกับเศษ แล้วแจกเศษทีละสตางค์ตามลำดับสมาชิกใน request เช่น `100.00` ให้ Alice, Bob, Carol จะได้ `33.34`, `33.33`, `33.33` ถ้าเป็น `1000.00` จะได้ `333.34`, `333.33`, `333.33` รวมเท่าบิลพอดี Frontend ใช้ลำดับเดียวกันจึง preview ตรงกับ backend
+
+Exact split ตรวจผลรวมก่อนบันทึก ถ้ายังไม่ตรง frontend จะแสดงยอดที่ขาดหรือเกินและปิดปุ่มบันทึก ฝั่ง backend ตรวจซ้ำอีกครั้งและคืน error ที่อธิบายสาเหตุ
+
+ยอดสุทธิคิดจากเงินที่จ่ายไป ลบส่วนแบ่งที่ต้องรับผิดชอบ ดังนั้นบิล `100.00` ที่ Alice จ่ายและหารสามคนจะได้ `alice: 66.66`, `bob: -33.33`, `carol: -33.33` ยอดบวกคือเงินที่ต้องได้รับคืน ยอดลบคือเงินที่ต้องจ่ายคืน และรวมทุกคนได้ `0.00`
+
+ฐานข้อมูลรวมเครดิตกับเดบิตใน query เดียวเพื่อให้เห็น snapshot เดียวกันระหว่างที่มีการเพิ่มหรือลบบิล ยอดรวมใช้ความแม่นยำของ `NUMERIC` ต่อไปได้แม้ยอดหลายบิลจะเกินเพดานของบิลเดียว สมาชิกที่ยังไม่มีรายการก็แสดง `0.00` ด้วย
+
+## สิทธิ์ การส่งซ้ำ และการลบบิล
+
+ทุก request ใช้ `X-User` ตามโจทย์เพื่อเลือกผู้ใช้ตัวอย่าง แล้ว backend ตรวจว่าผู้ขอ ผู้จ่าย และผู้ร่วมหารเป็นสมาชิกกลุ่ม ผมเลือกตอบ `404` ทั้งกรณีไม่พบกลุ่มและไม่มีสิทธิ์ เพื่อไม่เปิดเผยว่ากลุ่มที่คนนั้นเข้าถึงไม่ได้มีอยู่จริง ผู้ขอเพิ่มบิลแทนคนอื่นในกลุ่มได้ และผู้จ่ายไม่จำเป็นต้องอยู่ในรายชื่อคนหาร
+
+`POST` ต้องส่ง `Idempotency-Key` มาด้วย คีย์หนึ่งใช้กับการเพิ่มบิลหนึ่งครั้ง ถ้าส่ง request เดิมซ้ำ เช่น เน็ตหลุดแล้วกดลองใหม่ ให้ใช้คีย์เดิม backend จะคืนบิลเดิม (`200`) แทนการสร้างใหม่ (`201`) ถ้าเป็นบิลใหม่ค่อยใช้คีย์ใหม่
+
+ผมกำหนด unique constraint ที่คู่ `group_id` กับ key และใช้ `ON CONFLICT` ของ PostgreSQL รับมือ request ที่เข้ามาพร้อมกัน การบันทึกบิลกับ shares อยู่ใน transaction เดียวกัน การตรวจสิทธิ์เกิดก่อนค้นคีย์เดิม และคีย์เดิมจะคืนข้อมูลที่สร้างไว้ รวมถึงกรณีส่ง body เปลี่ยนแต่ยังผ่านการตรวจรูปแบบ ส่วน JSON ที่เสียหรือโครงสร้างไม่ถูกต้องยังได้ `422`
+
+ฝั่งเว็บสร้างคีย์ด้วย `crypto.randomUUID()` และเก็บ request ที่กำลังส่งใน `sessionStorage` ถ้าไม่ได้รับคำตอบที่ยืนยันผล ระบบให้ลองส่งรายการเดิมและบล็อกการเพิ่มบิลใหม่ไว้ก่อน ระหว่างเพิ่ม ลบ หรือรอยืนยัน ก็เปลี่ยนผู้ใช้หรือกลุ่มไม่ได้ เมื่อสำเร็จจึงล้างฟอร์มและโหลดรายการกับยอดสุทธิจาก API ใหม่ การโหลดข้อมูลล้มเหลวหลังบันทึกจะแสดงแยกจากกรณีบันทึกไม่สำเร็จ และ response เก่าจะไม่เขียนทับข้อมูลของผู้ใช้หรือกลุ่มใหม่
+
+บิลแก้ไขไม่ได้ การลบเป็น soft delete โดยเก็บแถวเดิม shares และ key ไว้ แล้วตั้ง flag ว่าลบแล้ว รายการที่ลบจะไม่อยู่ใน list และไม่นำมาคิดยอดสุทธิ ถ้า replay คีย์เดิมก็ยังคืนบิลที่ลบแล้ว ไม่สร้างบิลกลับมา
+
+ผู้จ่าย (`paid_by`) เป็นคนลบได้ แม้คนที่เพิ่มบิลจะเป็นสมาชิกคนอื่น ผมเลือกให้ลบซ้ำโดยผู้จ่ายได้ `204` เหมือนเดิม ส่วนสมาชิกที่ไม่ใช่ผู้จ่ายได้ `403` แม้บิลถูกลบไปแล้ว ถ้าไม่พบบิลหรือบิลอยู่คนละกลุ่มได้ `404` รูปแบบ response ของ balances เป็น object ชื่อสมาชิกกับจำนวนเงิน และเรียงชื่อสมาชิกตามตัวอักษร รายละเอียดเหล่านี้เป็นข้อเลือกที่บันทึกไว้เมื่อโจทย์ไม่ได้ระบุรูปแบบตายตัว
+
+Error ของ API ใช้ JSON รูปแบบเดียวกัน พร้อม HTTP status ตามเหตุการณ์ Frontend แปลงเป็นข้อความไทย เช่น ยอดส่วนแบ่งไม่ตรงกับบิล หรือผู้จ่ายต้องอยู่ในกลุ่ม โดยเก็บค่าที่กรอกไว้เมื่อแก้ข้อมูลแล้วลองใหม่ได้
+
+## รัน tests และ checks
+
+เปิด terminal ที่ root ของ repository หลังติดตั้ง backend dependencies แล้ว ถ้าอยู่ใน `backend/` หรือ `frontend/` ให้ `cd ..` กลับ root ก่อน จากนั้นโหลดค่าจาก `.env` ของเครื่องตัวเอง ใช้กับไฟล์ที่เราเตรียมและเชื่อถือเท่านั้น เพราะคำสั่งนี้อ่านไฟล์เป็น shell script
+
+```sh
+set -a
+. ./.env
+set +a
 bash scripts/test-backend.sh
 ```
 
-The integration fixtures use isolated randomly named schemas in that database. The test database role needs permission to create and drop its schemas. Do not point this command at the application database.
+เมื่อเตรียม environment แล้ว การรัน backend tests ทั้งชุดใช้คำสั่งเดียวคือ `bash scripts/test-backend.sh`
 
-Run lint, formatting, and the generated-schema consistency check:
+Tests สร้าง schema ชั่วคราวที่ชื่อสุ่มใน `splitbill_test` แล้วรัน migrations และ seed สำหรับแต่ละรอบให้เอง จึงไม่ต้องสร้างตารางหรือ seed ฐานทดสอบด้วยมือ และไม่ต้องเปิด API server ไว้ เมื่อจบจะลบ schema นั้น role จึงต้องมีสิทธิ์สร้างและลบ schema ของตัวเอง การสร้าง database โดยให้ `splitbill` เป็นเจ้าของในขั้นที่ 2 รองรับส่วนนี้ ห้ามชี้ `TEST_DATABASE_URL` ไปฐานข้อมูลแอป
+
+ตรวจ Ruff, formatting และ OpenAPI ที่ commit ไว้จาก root ได้ด้วย
 
 ```sh
 bash scripts/check-backend.sh
 ```
 
-To regenerate OpenAPI after an implemented API change:
+ถ้าแก้ API และต้องสร้าง OpenAPI ใหม่ ให้รัน
 
 ```sh
 cd backend
 .venv/bin/python -m splitbill.openapi
 ```
 
-Commands in this document describe how to check the backend. Commit-specific local, CI, merge/sync and fresh-clone evidence belongs in the milestone PR/handoff. This README does not substitute for that evidence or pin moving branch heads.
+Frontend มี ESLint, TypeScript และ tests ของการคำนวณเงินกับ pending request ส่วน production build ใช้ Webpack เพราะเคยเจอปัญหา worker ของ Turbopack bind พอร์ตไม่ได้ในสภาพแวดล้อมที่พัฒนา รัน checks และ build จาก root ดังนี้
 
-The historical baseline implementation run on Python **3.13.7** and PostgreSQL **16.13** passed **19 baseline tests without warnings**, Ruff lint and formatting checks, the implemented OpenAPI snapshot check, and `pip check`. Against an isolated application database, the real Alembic CLI also passed upgrade, schema-drift check, downgrade to base, upgrade again, and two seed runs. These baseline results do not certify the new expense work. Record B1a checks, fresh-clone results, remote CI, and push/merge evidence separately against the delivered SHA.
+```sh
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
-## B1a: expense creation and listing
+ถ้าจะลอง production server ให้หยุด `npm run dev` ที่ใช้พอร์ต `3000` อยู่ก่อน แล้วรัน `npm start` จากโฟลเดอร์ `frontend/` หลัง build ผ่าน
 
-Expense creation implements equal/exact allocation and group-scoped concurrent idempotency. Listing returns active expenses in deterministic newest-first order. The final local PostgreSQL 16 suite passed **115 tests**: 23 money, 19 baseline, one expense-migration, 59 POST, and 13 GET cases. Coverage includes overlapping requests using two database backend PIDs, forced-write-failure rollback, timestamp ordering/ties, group isolation, and retained deleted rows. Ruff lint/format checks over 30 files and the generated OpenAPI consistency check also passed. [The expense plan](docs/superpowers/plans/2026-11-02-expenses.md) records the checkpoints and Git handoff.
+ต้องตั้ง `NEXT_PUBLIC_API_URL` ให้ถูกก่อน build เพราะ Next ฝังค่านี้ลงในไฟล์ frontend ตั้งแต่ตอน build ฟอนต์ Noto Sans Thai อยู่ใน repository พร้อม OFL license จึงไม่ต้องเรียก Google Fonts ตอน build หรือเปิดหน้าเว็บ
 
-A real Uvicorn HTTP check returned `201` for the `1000.00` equal split with shares `333.34/333.33/333.33`, `200` with the unchanged original for a changed-payload replay, and `201` for an exact `0.30` split into `0.10/0.20`. GET returned the newest expense first; unauthorized group access returned `404` and an incorrect exact total returned `422`. The expense migration upgrade, Alembic no-drift check, and seed command also passed locally. Creation/listing were subsequently delivered through [PR #1](https://github.com/WajanaPiromnok/split-bill/pull/1); release evidence is recorded separately against its delivered SHA.
+### ทดสอบ browser กับ backend จริง
 
-The implemented creation path uses strict API strings, Python `Decimal`, and PostgreSQL `NUMERIC(12,2)`. Plain ASCII digits with zero, one, or two fractional digits are accepted, then output is normalized to two places. Money input strings are limited to 64 characters. Bill amounts must be positive and at most `9999999999.99`; exact shares may be zero. Input precision is checked before rounding or storage.
+ติดตั้ง Playwright แยกสำหรับงานทดสอบ แล้วรันจาก root คำสั่งนี้เปิด API และ frontend ของตัวเอง ไม่ต้องใช้ development servers ที่เปิดไว้
 
-The requesting user, payer, and participants must all be group members, but the requester may record an expense paid by someone else, and the payer need not be included in the split. Equal splits preserve submitted member order when distributing remaining satang; the service checks that exact shares sum to the bill before saving them atomically. This is not a claim of a database-enforced cross-row aggregate constraint.
+```sh
+backend/.venv/bin/python -m pip install playwright==1.64.1
+backend/.venv/bin/python -m playwright install chromium
+backend/.venv/bin/python scripts/test-frontend-integration.py
+```
 
-The replay policy returns the original expense for a repeated key, including a changed request that passes framework validation. Authorization precedes key lookup; an existing key is resolved before new-expense business validation. Malformed JSON and invalid request shapes still fail with `422`. See the contract for full request, response, and error details.
+Runner อ่าน `TEST_DATABASE_URL` จาก environment หรือ root `.env` ตรวจว่าเป็น PostgreSQL 16 และแยกฐานจากแอป จากนั้นสร้าง schema สุ่ม migrate/seed และ build Next ให้เรียก API ทดสอบที่พอร์ต `8059` แล้วเปิด frontend ที่ `3001` สองพอร์ตนี้ต้องว่าง เปลี่ยนได้ด้วย `--api-port` และ `--web-port` เมื่อจบจะปิด process ของตัวเองและลบ schema ทดสอบ
 
-## Deletion and balances
+Tests ของ backend กับ browser รวมกันครอบคลุม equal/exact, precision, สิทธิ์กลุ่ม, idempotency ทั้งคำขอพร้อมกันและกรณีคำตอบหาย, payer-only delete, ยอดรวมศูนย์ และ response เก่าที่กลับมาช้า การจำลองปัญหาใช้การหน่วงหรือทิ้ง response หลัง backend จริงบันทึกแล้ว ไม่ใช้ข้อมูลสำเร็จปลอมมาแทน API หรือ PostgreSQL
 
-DELETE retains the expense, shares and key, returns an empty 204 for the payer (including repeated deletion), and returns 403 for another group member, including after deletion. Inaccessible groups remain 404; a missing expense or ID from another group is 404. The creator and payer may differ; the `paid_by` user owns deletion permission and need not participate in the split. The empty/repeated 204 behavior is an implementation choice where the brief is silent.
+ภาพจาก runner อยู่ใน `design-system` ส่วนรอบที่ไม่ผ่านจะทิ้งหลักฐานไว้ใน temporary directory หลังรัน runner ถ้าจะใช้ `npm start` ตามปกติ ให้ build ใหม่ด้วย API URL ปกติก่อน เพราะ build ทดสอบชี้ไปพอร์ต `8059` ส่วน `npm run dev` อ่าน config ปกติแยกอยู่แล้ว
 
-GET balances returns a direct mapping such as `{"alice":"666.66","bob":"-333.33","carol":"-333.33"}` for the 1000.00 example. This response shape is a documented interpretation of the brief. Every member appears alphabetically, including untouched members with `0.00`. A positive balance is money owed to the member; calculate paid minus allocated share, excluding deleted expenses.
+### ผลตรวจที่บันทึกไว้
 
-Credits and debits are combined with UNION ALL and aggregated in one PostgreSQL statement, giving a consistent snapshot during concurrent creation/deletion. Totals remain exact NUMERIC values, can exceed one bill's NUMERIC(12,2) range, and are formatted as two-decimal strings. No cached balance rows or new migration are needed.
+ที่ commit [`d188cae`](https://github.com/WajanaPiromnok/split-bill/commit/d188cae9a5d0089a7de5322090266aa826d84863) CI ผ่าน [backend 151 tests](https://github.com/WajanaPiromnok/split-bill/actions/runs/41661760076) และ [frontend/full-stack 16 ชุด](https://github.com/WajanaPiromnok/split-bill/actions/runs/41661760324) พร้อม native Node tests 6 เคส, lint, types และ production build ฝั่ง backend ตรวจทั้ง migration/seed และ OpenAPI ด้วย
 
-The six required backend test cases are covered by the full suite. The added DELETE cases check permissions, retained records/replay and failure rollback; balance cases check all-member zeros, both equal-split examples, exact/multiple-payer calculations, cross-group isolation, replay, deletion effects and aggregate limits. See the [implementation plan](docs/superpowers/plans/2026-11-03-delete-balances.md) and milestone handoff for actual verification results.
+เคสบังคับทั้งหกตามโจทย์มีอยู่ใน pytest ได้แก่ หาร `100.00` สามคนและยอดรวมศูนย์, exact รวมไม่ตรง, จำนวนเงินสามตำแหน่ง, คีย์ซ้ำไม่สร้างบิลซ้ำ, Alice อ่านหรือเขียนกลุ่ม 2 ไม่ได้ และเฉพาะผู้จ่ายลบบิลได้ มีการทดสอบ concurrent idempotency ด้วย connection PostgreSQL คนละตัว รวมถึง rollback เมื่อเขียนไม่ครบ
 
-At the local completion checkpoint, the full PostgreSQL 16 suite passed **151 tests with warnings treated as errors** (115 existing, 16 DELETE, 20 balances). Ruff lint/format over 35 Python files and generated OpenAPI consistency also passed. These local results are distinct from remote CI and delivery evidence.
+Browser checks ตรวจจอ 375, 390, 768, 1024 และ 1440px, keyboard/focus และ reduced motion ผลนี้เป็นหลักฐานของ Chromium ส่วน commit ที่ใหม่กว่านั้นต้องดูผลของ revision นั้นใน [GitHub Actions](https://github.com/WajanaPiromnok/split-bill/actions) อีกครั้ง
 
-## Remaining assessment scope
+## ข้อจำกัดและสิ่งที่จะทำต่อ
 
-The Next.js frontend and real browser-to-API integration remain to be implemented. Its arithmetic and previews must match the backend without binary floating-point errors.
+`X-User` เป็นการเลือกผู้ใช้ตามโจทย์ ตอนนี้ยังไม่มีระบบสมัครสมาชิกหรือ login จริง และยังไม่ได้เลือก hosting ถ้าจะเปิดให้คนทั่วไปใช้ ผมจะทำ authentication และจัดการ secrets ของแต่ละ environment ก่อน deploy
 
-Full authentication, optional settlement/payment endpoints, and visual polish are outside this backend scope. [AI_NOTES.md](AI_NOTES.md) records AI assistance, detected errors, and corrections. The historical baseline implementation/review estimate was **about 30–45 minutes**, excluding earlier prompt drafting; it does not include the later expense, deletion and balance milestones and is not a precise time log.
+หน้าเว็บใช้ผู้ใช้และกลุ่มจาก seed จึงยังสร้างกลุ่มหรือเพิ่มสมาชิกจากหน้าเว็บไม่ได้ รายการบิลโหลดทั้งกลุ่ม ถ้าข้อมูลมากขึ้น ขั้นต่อไปคือเพิ่ม pagination แล้วทดสอบสิทธิ์กับการเรียงรายการของแต่ละหน้า ส่วน browser อื่นนอกจาก Chromium ยังต้องตรวจเพิ่ม
 
-The repository remains private. Reading GitHub rulesets returned `403` because of the private-repository plan limitation. The workflow policy and CI configuration are present; server-enforced branch protection is not claimed. Remote CI evidence is attached to each delivered revision. Repository visibility was not changed to work around the limitation.
+Settlement suggestions, repayments และ Docker Compose เป็น optional ตามโจทย์ ยังไม่ได้ทำ รอบนี้เก็บงานไว้ที่ API กับหน้าแบ่งบิลที่ทดสอบแล้วก่อน UI ยังไม่คำนวณว่าใครต้องโอนให้ใคร และไม่มีการรับชำระเงินจริง
 
-## Handoff identity
+Backend แยก routing, business rules และ data access ตามหน้าที่ Frontend ใช้ native form controls, React state และ `fetch` โดยยังไม่เพิ่ม form/state/query library เพราะ flow ตอนนี้จัดการได้ในหน้าเดียว แนวทางที่ตกลงกันและประวัติแต่ละ milestone อยู่ใน [แผน backend](docs/superpowers/plans/2026-11-03-delete-balances.md), [แผน expenses](docs/superpowers/plans/2026-11-02-expenses.md) และ [แผน frontend](docs/frontend-plan.md)
 
-Record the exact remote baseline SHA after pushing. Do not write a commit's own SHA into a tracked file and commit it again, because that creates a different SHA.
+## เวลาที่ใช้และการใช้ AI
+
+เวลารวมประมาณ 12 man-hours ครับ มาจากเวลาที่มีบันทึกไว้สำหรับ baseline ประมาณ 30 ถึง 45 นาที และ frontend/local review ประมาณ 1 ชั่วโมง รวมกับเวลาที่ผมใช้เรียนรู้ เขียน ทดสอบ และแก้ไขเพิ่มอีกประมาณ 10 ชั่วโมง ตัวเลขนี้เป็นประมาณการ ไม่ได้จับเวลาแยกครบทุกกิจกรรม
+
+ผมใช้ Codex และเครื่องมือ AI ช่วยบางส่วน แล้วตรวจ diff กับโจทย์ รัน checks และทดสอบกับฐานข้อมูลจริงก่อนส่งแต่ละ milestone รายละเอียดเครื่องมือ prompt ที่ใช้ ตัวอย่างคำตอบที่ผิด วิธีตรวจเจอ และวิธีแก้อยู่ใน [AI_NOTES.md](AI_NOTES.md)
+
+## Branch และการส่งต่องาน
+
+ใช้สาม branch ตาม [Git workflow](docs/git-workflow.md): `main` เป็นฐานร่วมที่รับ milestone แล้ว, `dev/backend` สำหรับ backend และ `dev/frontend` สำหรับ frontend ประวัติ commit แยกตามงานที่ทำและเก็บ commit ย่อยไว้ผ่าน merge commit เมื่อรวม PR จากนั้นค่อย sync `main` กลับเข้าทั้งสอง dev branches
+
+รอบนี้ผมจะเปิด PR เอง ก่อนส่งต้องระบุ branch/SHA ที่มีทั้ง backend และ frontend และตรวจว่า repository เปิดอ่านได้ตามเงื่อนไขของโจทย์ ถ้าใช้ private repository ต้องให้บัญชี `@alkchowpa` เข้าถึงด้วย การตั้งค่า CI มีแล้ว ส่วน server-enforced branch protection ยังไม่ได้ยืนยันเพราะ GitHub ตอบ `403` ตอนอ่าน rules ของ private repository
+
+ตรวจ revision ที่กำลังจะส่งได้ด้วย
 
 ```sh
 git rev-parse HEAD
 git ls-remote --heads origin main dev/backend dev/frontend
 ```
-
-Frontend work can consume the APIs available in the verified delivered `main` revision. Use its exact SHA and matching OpenAPI snapshot for integration checks.

@@ -20,15 +20,11 @@ def balances_for_group(session: Session, group_id: int) -> dict[str, Decimal]:
     )
     # One statement observes credits and debits from the same committed snapshot.
     movements = union_all(credits, debits).subquery()
-    totals = (
-        select(movements.c.username, func.sum(movements.c.delta).label("balance"))
-        .group_by(movements.c.username)
-        .subquery()
-    )
     statement = (
-        select(GroupMember.username, func.coalesce(totals.c.balance, Decimal("0.00")))
-        .outerjoin(totals, totals.c.username == GroupMember.username)
+        select(GroupMember.username, func.coalesce(func.sum(movements.c.delta), Decimal("0.00")))
+        .outerjoin(movements, movements.c.username == GroupMember.username)
         .where(GroupMember.group_id == group_id)
+        .group_by(GroupMember.username)
         .order_by(GroupMember.username)
     )
     return dict(session.execute(statement).all())

@@ -11,4 +11,6 @@ __pycache__/
 htmlcov/
 node_modules/
 .next/
+*.tsbuildinfo
+next-env.d.ts
 .DS_Store
