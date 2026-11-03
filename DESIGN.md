@@ -16,7 +16,7 @@ This document records the engineering review of that specimen. Stitch's first bo
 
 ## Colors
 
-The initial Stitch green was `#15803D`, with teal `#0F766E`, debit orange `#C2410C`, and slate ink `#0F172A`. The proposed primary below follows the impeccable palette seed at hue 160; it was included in the correction prompt. Keep the page white rather than carrying over the specimen's lavender-tinted canvas.
+The initial Stitch green was `#15803D`, with teal `#0F766E`, debit orange `#C2410C`, and slate ink `#0F172A`. The reviewed primary below follows the impeccable palette seed at hue 160; it was included in the correction prompt. Keep the page white rather than carrying over the specimen's lavender-tinted canvas.
 
 ```yaml
 colors:
@@ -29,6 +29,7 @@ colors:
   ink: oklch(0.24 0.02 250)
   muted: oklch(0.45 0.02 250)
   border: oklch(0.84 0.012 160)
+  control-border: oklch(0.65 0.012 160)
   negative: oklch(0.45 0.14 35)
   negative-surface: oklch(0.97 0.015 35)
   focus: oklch(0.44 0.105 160)
@@ -36,7 +37,7 @@ colors:
 
 Use green plus “ต้องได้รับคืน” for a positive balance, a debit tone plus “ต้องจ่ายคืน” for a negative balance, and neutral ink plus “ยอดสุทธิเป็นศูนย์” for zero. Color never replaces the label. Destructive actions use explicit wording and a confirmation.
 
-A local mathematical sRGB/WCAG calculation gave primary/white 5.65:1, ink/white 16.43:1, muted/white 7.42:1, and negative/negative-surface 7.26:1. These checks apply to these proposed token pairs only; inspect actual rendered component states before claiming accessibility conformance.
+A local mathematical sRGB/WCAG calculation gave primary/white 5.65:1, ink/white 16.43:1, muted/white 7.42:1, and negative/negative-surface 7.26:1. Interactive control boundaries use the darker control-border token (3.22:1 on white); decorative separators retain the lighter border. These checks apply to these token pairs only; inspect actual rendered component states before claiming accessibility conformance.
 
 ## Typography
 
@@ -118,4 +119,4 @@ The API contract defines behavior. Keep technical headers and retry keys out of 
 - Show net balances only. They do not identify bilateral transfers, and zero does not prove a payment occurred.
 - No PromptPay, QR, payment requests, notifications, receipt upload, settlement controls, invented group memberships, or decorative charts.
 - Use exact integer satang and string formatting; preserve membership, authorization, API errors, and accessible controls when simplifying.
-- The full behavior and verification plan is in [docs/frontend-plan.md](docs/frontend-plan.md). No frontend build or integration success is claimed yet.
+- The behavior and verification plan is in [docs/frontend-plan.md](docs/frontend-plan.md), with setup/check commands in [README.md](README.md) and actual application screenshots in [design-system](design-system/README.md). Revision-specific results belong in the delivery evidence.

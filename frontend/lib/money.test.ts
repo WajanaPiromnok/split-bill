@@ -11,7 +11,10 @@ import {
 test("100.00 split among three preserves every satang and submitted order", () => {
   const shares = splitEqual(parseAmount("100.00")!, ["alice", "bob", "carol"]);
   assert.deepEqual(shares, { alice: 3334n, bob: 3333n, carol: 3333n });
-  assert.equal(Object.values(shares).reduce((sum, share) => sum + share, 0n), 10000n);
+  assert.equal(
+    Object.values(shares).reduce((sum, share) => sum + share, 0n),
+    10000n,
+  );
   // The remainder follows the submitted participants; there is no payer input.
   assert.deepEqual(splitEqual(10000n, ["carol", "alice", "bob"]), {
     carol: 3334n,
@@ -40,9 +43,24 @@ test("amount inputs enforce the API format, precision, length and range", () => 
   assert.equal(parseAmount("9999999999.99"), 999999999999n);
   assert.equal(parseAmount("0".repeat(64)), 0n);
   for (const value of [
-    "", "-1.00", "+1", "1e2", "1,000.00", "1.001", "1.", ".50",
-    " 1", "1 ", "1\n", "1\r", "1\u2028", "NaN", "Infinity", "๑๐.๐๐",
-    "10000000000.00", "0".repeat(65),
+    "",
+    "-1.00",
+    "+1",
+    "1e2",
+    "1,000.00",
+    "1.001",
+    "1.",
+    ".50",
+    " 1",
+    "1 ",
+    "1\n",
+    "1\r",
+    "1\u2028",
+    "NaN",
+    "Infinity",
+    "๑๐.๐๐",
+    "10000000000.00",
+    "0".repeat(65),
   ]) {
     assert.equal(parseAmount(value), null, value);
   }

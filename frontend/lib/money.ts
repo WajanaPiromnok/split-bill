@@ -15,7 +15,11 @@ export function parseAmount(value: string): bigint | null {
 
 /** Aggregate balances may be negative and exceed the single-expense limit. */
 export function parseBalance(value: string): bigint | null {
-  if (/^-?[0-9]+\.[0-9]{2}$/.exec(value)?.[0] !== value) return null;
+  if (
+    typeof value !== "string" ||
+    /^-?[0-9]+\.[0-9]{2}$/.exec(value)?.[0] !== value
+  )
+    return null;
   return BigInt(value.replace(".", ""));
 }
 
@@ -36,7 +40,9 @@ export function splitEqual(
   members: string[],
 ): Record<string, bigint> {
   if (total <= 0n || total > MAX_AMOUNT) {
-    throw new RangeError("Expense must be positive and within the amount limit");
+    throw new RangeError(
+      "Expense must be positive and within the amount limit",
+    );
   }
   if (
     members.length === 0 ||
