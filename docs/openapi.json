@@ -279,7 +279,7 @@
     }
   },
   "info": {
-    "description": "SplitBill group access and shared expenses with exact monetary allocation.",
+    "description": "SplitBill group access, shared expenses, soft deletion and exact balances.",
     "title": "SplitBill",
     "version": "0.1.0"
   },
@@ -419,6 +419,81 @@
         "summary": "Read Group",
         "tags": [
           "groups"
+        ]
+      }
+    },
+    "/groups/{group_id}/balances": {
+      "get": {
+        "operationId": "read_balances_groups__group_id__balances_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User",
+            "required": true,
+            "schema": {
+              "title": "X-User",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Read Balances Groups  Group Id  Balances Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, empty or unknown X-User"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Group not found or inaccessible"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "summary": "Read Balances",
+        "tags": [
+          "balances"
         ]
       }
     },

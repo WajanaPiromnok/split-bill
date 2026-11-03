@@ -10,6 +10,8 @@
 
 **Spec:** [Design](../specs/2026-11-03-delete-balances-design.md), the user-supplied SplitBill brief and current API contract.
 
+This is the local pre-publication checkpoint. Later push, CI, merge/sync and fresh-clone evidence is recorded in the milestone PR and external handoff against the actual delivered SHA.
+
 ## Global constraints
 
 - No monetary floats; output monetary values as strings with exactly two decimal places.
@@ -36,7 +38,7 @@ Interfaces: `get_group_expense(session, group_id: int, expense_id: int) -> Expen
 - [x] Run new tests and observe missing DELETE failures before adding production behavior: 16 new failures, existing 115 passed.
 - [x] Implement group authorization, scoped lookup including deleted records, payer check, flag update and commit; add route with explicit 204 Response.
 - [x] Run deletion tests and existing applicable tests: 131 passed with the not-yet-implemented independent balances file excluded; Ruff and OpenAPI consistency passed. Independent DELETE review found no material defect.
-- [ ] Commit the coherent DELETE feature without the independent balance test file.
+- [x] Commit the coherent DELETE feature without the independent balance test file: `83f08f1`.
 
 ## Task 2: exact member balances
 
@@ -44,10 +46,10 @@ Files: `backend/tests/test_balances.py`, new `backend/splitbill/balance_reposito
 
 Interfaces: `balances_for_group(session, group_id: int) -> dict[str, Decimal]`; `read_balances(session, group_id: int, username: str) -> dict[str, str]`.
 
-- [ ] Write tests with literal expected values for empty/all-member zeros; 100.00 and 1000.00 equal splits; exact shares; multiple payers; duplicate replay; large totals; authorization/isolation; deletion effects.
-- [ ] Run balance tests and observe absent-route failures.
-- [ ] Aggregate active expense credits/debits using UNION ALL, SUM and a member outer join in one statement. Format Decimal output without context-dependent arithmetic.
-- [ ] Register the balances router and verify the complete PostgreSQL suite plus lint/format/OpenAPI checks.
+- [x] Write 20 tests with literal expected values for empty/all-member zeros; 100.00 and 1000.00 equal splits; exact shares; multiple payers; duplicate replay; large totals; authorization/isolation; deletion effects.
+- [x] Run balance tests and observe 20 absent-route failures.
+- [x] Aggregate active expense credits/debits using UNION ALL, SUM and a member outer join in one statement. Format Decimal output without context-dependent arithmetic.
+- [x] Register the balances router and verify the complete PostgreSQL suite: 151 passed with warnings treated as errors. Ruff lint/format (35 files) and OpenAPI consistency passed.
 - [ ] Update README/API contract and AI_NOTES with assumptions, examples and actual local evidence; obtain independent code review and commit.
 
 ## Task 3: publication and handoff

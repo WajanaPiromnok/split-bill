@@ -140,7 +140,7 @@ For example, an existing authorized key can return the original expense despite 
 | `422` | `invalid_payer` | Payer is not a group member |
 | `422` | `invalid_split` | Duplicate/nonmember participants or exact shares that do not total the bill |
 
-The same key in another group is independent, subject to that group's access check. Uniqueness is `(group_id, idempotency_key)` and continues covering retained deleted rows. No delete route exists in B1a; keeping a `deleted` flag does not implement soft deletion.
+The same key in another group is independent, subject to that group's access check. Uniqueness is `(group_id, idempotency_key)` and continues covering retained deleted rows. The DELETE route below retains those records and keys.
 
 Concurrent requests use a PostgreSQL transaction at READ COMMITTED: insert with `ON CONFLICT DO NOTHING`, then select the winning expense. Only the winning insertion creates shares; a replay cannot observe a committed partial expense. The service validates the exact allocation total before the transaction is committed; a database cross-row aggregate constraint is not claimed. The local POST checks include a real PostgreSQL overlap using two backend PIDs, complete-share verification, and rollback after a forced write failure. They are included in the passing local suite and do not certify remote CI.
 
@@ -158,7 +158,7 @@ Returns `200` with an array of the expense response objects above, or `[]` when 
 - Sort by `created_at` descending, then `id` descending for stable timestamp ties.
 - Keep expenses and shares isolated to the requested group; do not expose another group's records.
 
-The 13 local GET tests cover ordering by timestamp independently of insertion identity, descending-ID timestamp ties, empty lists, authorization/group isolation, and exclusion of retained deleted rows. Real HTTP verification also returned the newest expense before the earlier one. These checks do not imply that a DELETE or balances endpoint exists.
+The 13 GET tests cover ordering by timestamp independently of insertion identity, descending-ID timestamp ties, empty lists, authorization/group isolation, and exclusion of retained deleted rows. Additional DELETE/balance tests below verify those routes together with listing and replay.
 
 ## Implemented: DELETE /groups/{group_id}/expenses/{expense_id}
 
@@ -177,12 +177,28 @@ Only the expense's `paid_by` user may delete it. The creator/requester and split
 
 The brief leaves the success representation and repeated-delete status open; the empty 204/repeated-204 behavior is the documented implementation choice.
 
-## Still planned after this checkpoint
+## Implemented: GET /groups/{group_id}/balances
 
-| Endpoint | Remaining behavior |
-| --- | --- |
-| `GET /groups/{group_id}/balances` | Per-member net balances with positive meaning money owed to that member; exact zero-sum total |
+```http
+GET /groups/1/balances
+X-User: alice
+```
 
-For the dinner example, eventual balances are `+666.66`, `-333.33`, `-333.33` for alice/bob/carol. These values explain the assessment's sign convention; this milestone does not provide a balances response.
+Returns `200` with a direct mapping of every group member to a two-decimal monetary string. The brief does not prescribe this response shape; this is the documented contract choice. No Idempotency-Key is required.
 
-Frontend F1 can consume the group APIs. Expense integration must use a verified B1a handoff SHA and the corresponding generated schema. Mocked development checks must be identified and cannot serve as final real-API integration evidence.
+After the brief's `1000.00` dinner paid by alice and split equally:
+
+```json
+{"alice":"666.66","bob":"-333.33","carol":"-333.33"}
+```
+
+- Balance is total paid minus total allocated share. Positive means money owed to that member; negative means they owe money.
+- Return all members in alphabetical order, including those without expenses or shares as `0.00`. No negative-zero output is emitted.
+- Exclude deleted expenses from both credits and debits. Retained share rows do not contribute after deletion. Repeated POST keys do not duplicate contributions.
+- Sum exact PostgreSQL NUMERIC credit/debit movements in one statement snapshot. Do not join a payer's total once per share. Aggregate balances can exceed one expense's NUMERIC(12,2) bound and are not cast back to it.
+- The shares of each stored expense total its amount, so the member balances sum to exactly `0.00`. Serialize the resulting Decimals directly without floating-point arithmetic.
+- Authentication, group access and invalid path errors follow the common 401/404/422 contract. Inaccessible groups return `404 group_not_found` before any balance query.
+
+The balance integration cases cover both 100.00/1000.00 examples, exact/zero/omitted shares, different payers and requesters, ordered remainders, idempotent replay, group isolation, deletion effects, all-zero groups and aggregate values of `29999999999.97`.
+
+All six required backend endpoints are now implemented. Frontend integration must use a verified handoff SHA and the matching generated schema. Mocked development checks must be identified and cannot serve as final real-API integration evidence. Optional settlement/payment endpoints remain outside this milestone.
