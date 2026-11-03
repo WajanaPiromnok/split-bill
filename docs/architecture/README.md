@@ -1,48 +1,52 @@
-# SplitBill: stack และเส้นทางข้อมูล
+# ภาพรวมระบบ SplitBill
 
-ภาพนี้เป็น snapshot ของ milestone backend ก่อนเริ่ม frontend จึงยังมีป้าย PLANNED อยู่ในภาพ ปัจจุบัน frontend พัฒนาใน Next.js / TypeScript / Tailwind แล้วและเรียก FastAPI โดยตรง ดูการรันและผลตรวจตาม revision ใน [README หลัก](../../README.md) และ [ภาพหน้าจอแอปจริง](../../design-system/README.md)
+Frontend ใช้ Next.js, TypeScript และ Tailwind CSS ครับ เวลาใช้งาน browser จะเรียก FastAPI โดยตรง แล้ว backend ตรวจสิทธิ์กับกฎการแบ่งเงินก่อนอ่านหรือบันทึก PostgreSQL
 
-- [เปิดแผนภาพ HTML](stack.html)
-- [ภาพ PNG พื้นสว่าง](stack.png) · [ภาพ PNG พื้นมืด](stack-dark.png)
+- [เปิดแผนภาพ HTML และสลับธีม](stack.html)
+- [ภาพพื้นสว่าง](stack.png) · [ภาพพื้นมืด](stack-dark.png)
+- [วิธีติดตั้งและรัน](../../README.md) · [ภาพหน้าจอแอปจริง](../../design-system/README.md)
 
-![SplitBill stack diagram](stack.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="stack-dark.png">
+  <img alt="ภาพรวม SplitBill: Next.js เรียก FastAPI และ PostgreSQL โดยแยก setup กับ CI ไว้อีกส่วน" src="stack.png">
+</picture>
 
-## เทคโนโลยีและสถานะ
+## แต่ละส่วนทำอะไร
 
-| ส่วน | เทคโนโลยี | หน้าที่ | สถานะ |
-| --- | --- | --- | --- |
-| Frontend | Next.js + TypeScript + Tailwind CSS | UI เลือกผู้ใช้/กลุ่ม แสดงรายจ่ายและยอดคงเหลือ สร้างและลบรายจ่าย | พัฒนาแล้ว; ภาพเดิมบันทึกสถานะก่อนเริ่ม UI |
-| HTTP API | FastAPI + Uvicorn, Python 3.12+ | รับ HTTP/JSON ตรวจข้อมูลและสิทธิ์ แล้วส่งผลลัพธ์ JSON | มีแล้ว: 6 endpoints |
-| Business services | Python `Decimal` และจำนวนเต็มหน่วยสตางค์ | ตรวจสมาชิก แบ่งเงินแบบ equal/exact, idempotency และสิทธิ์ลบของผู้จ่าย | มีแล้ว |
-| Data access | SQLAlchemy 2 + psycopg 3 | จัดการ session/transaction และ query PostgreSQL | มีแล้ว |
-| Application database | PostgreSQL 16 | เก็บ users, groups, memberships, expenses และ shares; จำนวนเงินใช้ `NUMERIC(12,2)` | มีแล้ว |
-| Schema และข้อมูลเริ่มต้น | Alembic + Python seed | อัปเกรดโครงสร้างฐานข้อมูลและสร้างข้อมูลตัวอย่างแบบรันซ้ำได้ | มีแล้ว; รันระหว่าง setup |
-| API contract | OpenAPI + [API contract](../api-contract.md) | อธิบาย request/response/error เพื่อส่งต่องาน frontend | มีแล้ว: [schema ที่สร้างจาก API](../openapi.json) |
-| Backend checks | pytest + Ruff + GitHub Actions | ตรวจพฤติกรรม lint/format, OpenAPI, migration และ seed กับ PostgreSQL 16 | ตั้งค่าแล้ว |
-| Test database | PostgreSQL 16 แยกจาก application database | รองรับ integration tests; fixtures สร้าง schema ชั่วคราวแยกแต่ละรอบ | มีแล้ว |
+| ส่วน | ใช้อะไร | หน้าที่ |
+| --- | --- | --- |
+| Frontend | Next.js, TypeScript, Tailwind CSS | เลือกผู้ใช้และกลุ่ม กรอกบิล ดูส่วนแบ่ง ยอดสุทธิและรายการบิล รวมถึงลบบิลของผู้จ่าย |
+| API | FastAPI, Uvicorn, Python 3.12+ | รับ HTTP/JSON ตรวจรูปแบบ request และอ่าน `X-User` มีครบ 6 endpoints ตามโจทย์ |
+| Business rules | Python `Decimal` และจำนวนเต็มหน่วยสตางค์ | ตรวจสมาชิก แบ่ง equal/exact เช็คยอดรวม คีย์ซ้ำและสิทธิ์ลบ |
+| Data access | SQLAlchemy 2, psycopg 3 | query และ transaction กับ PostgreSQL |
+| ฐานข้อมูลแอป | PostgreSQL 16 | เก็บผู้ใช้ กลุ่ม สมาชิก บิลและส่วนแบ่ง ใช้ `NUMERIC(12,2)` สำหรับเงิน |
+| Setup | Alembic และ seed script | สร้าง schema และข้อมูลตัวอย่าง รัน seed ซ้ำได้ |
+| API contract | OpenAPI และ [เอกสาร API](../api-contract.md) | ดูรูปแบบ request, response และ error ให้ frontend ใช้ตรงกัน |
+| CI | GitHub Actions สอง workflows | ตรวจ backend และ frontend รวมถึง browser ที่เชื่อม API จริง |
+| ฐานข้อมูลทดสอบ | PostgreSQL 16 แยกอีก database | แต่ละรอบสร้าง schema ชั่วคราว แล้วลบเมื่อจบ |
 
-## เส้นทาง request
+กล่อง `backend/` ในภาพเป็นแอป Python เดียว ส่วน routing, services และ repositories เป็นไฟล์ที่แบ่งหน้าที่ภายในแอปครับ
 
-1. Browser ที่รัน UI ส่ง HTTP/JSON ตรงไป FastAPI; กำหนด origin ที่อนุญาตผ่าน `CORS_ORIGINS` ของ backend การตรวจทั้งระบบใช้ browser กับ API จริงและ schema ชั่วคราวใน PostgreSQL16 test database
-2. Uvicorn รับ request ให้ FastAPI ตรวจ schema และอ่าน `X-User` เพื่อเลือกผู้ใช้ตัวอย่าง จากนั้น services ตรวจสิทธิ์สมาชิกของกลุ่มและกฎธุรกิจ
-3. Services ตรวจเงินด้วย `Decimal`; equal split คำนวณเป็นจำนวนเต็มหน่วยสตางค์และแจกเศษตามลำดับสมาชิก ส่วน exact split ต้องรวมเท่าจำนวนเงินของบิล
-4. Repositories ใช้ SQLAlchemy และ psycopg ติดต่อ application database รายจ่ายและ shares บันทึกใน transaction เดียว; idempotency key มีขอบเขตต่อกลุ่ม และ soft delete เก็บแถวเดิมไว้
-5. API ส่งจำนวนเงินกลับเป็น string ทศนิยมสองตำแหน่ง ยอดคงเหลือรวมจากเงินที่จ่ายลบด้วยส่วนแบ่งใน PostgreSQL โดยไม่รวมรายจ่ายที่ลบแล้ว
+## เวลาส่งบิลเกิดอะไรขึ้น
 
-Alembic และ seed เป็นคำสั่ง setup ที่ติดต่อฐานข้อมูลโดยตรง แยกจากเส้นทาง request ปกติ ส่วน pytest ใช้ `TEST_DATABASE_URL` ของฐานทดสอบแยกต่างหาก ไม่ใช้ application database
+1. Frontend คำนวณ preview ด้วย `BigInt` หน่วยสตางค์ แล้วส่งเงินเป็น string เช่น `"100.00"` พร้อม `X-User` และ `Idempotency-Key`
+2. FastAPI ตรวจ request จากนั้น service เช็คว่าคนส่ง คนจ่าย และคนที่หารอยู่ในกลุ่มหรือไม่
+3. Equal split แจกเศษสตางค์ตามลำดับสมาชิก ส่วน exact split ต้องรวมได้เท่ายอดบิล
+4. Repository บันทึกบิลกับส่วนแบ่งใน transaction เดียว ฐานข้อมูลบังคับไม่ให้มีคีย์ซ้ำในกลุ่มเดียวกัน ถ้าส่งซ้ำ API จะคืนบิลเดิม
+5. Frontend โหลดรายการบิลและยอดสุทธิใหม่จาก API ยอดสุทธิคิดจากเงินที่จ่ายลบส่วนแบ่งของตัวเอง โดยไม่รวมบิลที่ soft delete แล้ว
 
-`X-User` เป็นข้อตกลงสำหรับ assessment เพื่อเลือก seeded user การยืนยันตัวตนแบบ production ยังอยู่นอกขอบเขตนี้ ยังไม่ได้เลือก cloud vendor หรือ deployment target
+Browser เรียก backend ข้าม origin จึงกำหนด origin ที่อนุญาตไว้ใน `CORS_ORIGINS` ส่วน `X-User` ใช้เลือกผู้ใช้ตัวอย่างตามโจทย์ ยังไม่มีระบบบัญชีหรือ login แบบ production
 
-## การตรวจสอบและส่งต่องาน
+## Setup กับการทดสอบ
 
-[GitHub Actions](../../.github/workflows/backend.yml) รัน backend checks เมื่อ push ไป `main`, `dev/backend`, `dev/frontend` และเมื่อเปิด PR เข้า `main` ผลของแต่ละ run ต้องตรวจจาก revision ที่ส่งมอบ; แผนภาพไม่ได้รับรองผล CI หรือการ deploy
+เส้นทึบในภาพคือการเรียกข้อมูลตอนใช้งาน ส่วนเส้นประคือคำสั่ง setup และการทดสอบ Alembic กับ seed ติดต่อฐานข้อมูลโดยตรงก่อนเริ่มใช้งานแอป
 
-[Workflow สาม branch](../git-workflow.md) ใช้ `main` เป็นฐานส่งต่องานที่ยอมรับแล้ว, `dev/backend` สำหรับ backend และ `dev/frontend` สำหรับ frontend โดยส่ง milestone ผ่าน PR เข้า `main` แล้ว sync กลับทั้งสอง dev branches การตั้งค่า workflow นี้ไม่ได้ยืนยันว่ามี branch protection บน server
+[Backend workflow](../../.github/workflows/backend.yml) ตรวจ Ruff, OpenAPI, migrations, seed และ pytest ส่วน [Frontend workflow](../../.github/workflows/frontend.yml) ตรวจ ESLint, TypeScript, Node tests และ production build แล้วรัน Chromium ผ่าน Next.js, FastAPI และ PostgreSQL 16 จริง การทดสอบ browser ใช้ข้อมูลใน schema ชั่วคราวตาม [integration runner](../../scripts/test-frontend-integration.py)
 
-Frontend ใช้ BigInt หน่วยสตางค์ให้ preview ตรงกับ backend และมี integration runner ผ่าน browser กับ API จริง ผล checks และ SHA ต้องรายงานจากการรันของ revision ที่ส่งมอบ ดูวิธีติดตั้งใน [README หลัก](../../README.md) โดย hosting และ production authentication ยังอยู่นอกขอบเขตนี้
+โค้ดแบ่งเป็น `main`, `dev/backend` และ `dev/frontend` ตาม [Git workflow](../git-workflow.md) โดยส่ง milestone เข้า `main` ผ่าน PR แล้ว sync กลับสอง dev branches ภาพแสดงโครงสร้างระบบ ส่วนผล CI ต้องดูจาก commit ที่ส่งมอบ ยังไม่ได้เลือก hosting หรือ cloud vendor ครับ
 
-## ไฟล์แผนภาพ
+## ไฟล์และแหล่งภาพ
 
-`stack.html` เป็นไฟล์ต้นฉบับที่ฝังโลโก้และฟอนต์ไว้แล้ว จึงเปิด offline และสลับธีมได้ ภาพ PNG ทั้งสองธีม export จาก HTML เดียวกันด้วย headless Chromium ที่ความละเอียด 2 เท่า หากแก้ผัง ให้ render ภาพใหม่จาก HTML เพื่อให้ README และภาพที่ส่งต่อสอดคล้องกัน
+`stack.html` ฝังโลโก้กับฟอนต์ไว้แล้ว เปิด offline ได้ ภาพ `stack.png` และ `stack-dark.png` render จาก HTML เดียวกันด้วย headless Chromium ที่ความละเอียด 2 เท่า ถ้าแก้แผนภาพ ให้สร้าง PNG ใหม่ทั้งสองธีมด้วย
 
-ดูแหล่งโลโก้และสิทธิ์การใช้งาน template/ฟอนต์ใน [NOTICE.txt](NOTICE.txt) โดย Alembic ใช้เครื่องหมายของโครงการ SQLAlchemy ซึ่งเป็นโครงการเจ้าของ migration tool นี้
+ใช้โลโก้เดิมของแต่ละโครงการโดยไม่เปลี่ยนสี Alembic ใช้เครื่องหมาย SQLAlchemy ส่วน browser ใช้ pictogram ของ template รายละเอียดแหล่งที่มาและ license อยู่ใน [NOTICE.txt](NOTICE.txt)
