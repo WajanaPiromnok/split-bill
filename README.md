@@ -12,7 +12,7 @@ The backend contains PostgreSQL migrations, repeatable seed data, group access, 
 | `GET /groups/{group_id}` | Baseline |
 | `POST /groups/{group_id}/expenses` | Implemented; local checks passed |
 | `GET /groups/{group_id}/expenses` | Implemented; local checks passed |
-| `DELETE /groups/{group_id}/expenses/{expense_id}` | Planned; not available |
+| `DELETE /groups/{group_id}/expenses/{expense_id}` | Implemented; payer-only soft deletion |
 | Balances | Planned; not available |
 | Next.js frontend | Not implemented |
 
@@ -116,9 +116,9 @@ The replay policy returns the original expense for a repeated key, including a c
 
 ## Remaining assessment scope
 
-The current request covers creation and listing only, and both have passed local checks. Publishing and the final B1a handoff are still pending. Balances, payer-only soft deletion, and the Next.js frontend remain outside this milestone. A stored deletion flag prepares the schema for later soft deletion; it does not provide a DELETE endpoint.
+Creation/listing were delivered through PR #1. The next milestone adds payer-only soft deletion and balances. DELETE is now implemented: it retains the expense, shares and key, returns an empty 204 for the payer (including repeat deletion), and returns 403 for another group member. Inaccessible groups remain 404. The creator and payer may differ; the `paid_by` user owns deletion permission. Balances and the Next.js frontend remain pending at this checkpoint.
 
-The PDF's six required backend cases are not yet all complete. POST tests now cover allocation, exact-sum rejection, excess precision rejection, idempotency, and write authorization. Payer-only deletion tests and per-member zero-sum balance verification still require later work. Frontend arithmetic and previews must eventually match the backend without binary floating-point errors.
+POST tests cover allocation, exact-sum rejection, excess precision rejection, idempotency, and write authorization. The new DELETE tests cover payer-only access, cross-group IDs, retained data/replay and rollback. Per-member zero-sum balance verification is the remaining backend endpoint work. Frontend arithmetic and previews must eventually match the backend without binary floating-point errors.
 
 Full authentication, optional settlement/payment endpoints, and visual polish are outside this baseline. [AI_NOTES.md](AI_NOTES.md) records AI assistance, detected errors, and corrections. Estimated time for baseline implementation and review is **about 30–45 minutes**, excluding earlier prompt drafting; this is an estimate for the current work, not a precise time log.
 

@@ -160,11 +160,27 @@ Returns `200` with an array of the expense response objects above, or `[]` when 
 
 The 13 local GET tests cover ordering by timestamp independently of insertion identity, descending-ID timestamp ties, empty lists, authorization/group isolation, and exclusion of retained deleted rows. Real HTTP verification also returned the newest expense before the earlier one. These checks do not imply that a DELETE or balances endpoint exists.
 
-## Still planned after B1a
+## Implemented: DELETE /groups/{group_id}/expenses/{expense_id}
+
+```http
+DELETE /groups/1/expenses/1
+X-User: alice
+```
+
+Only the expense's `paid_by` user may delete it. The creator/requester and split participants do not determine deletion permission. No Idempotency-Key is required.
+
+- Return `204` with an empty body after setting `deleted` to true. Repeating deletion as the payer returns the same empty `204`.
+- Retain the expense's original fields, shares and idempotency key. GET expenses excludes it. Same-key POST replay returns the original identity and data with `deleted: true`, without recreating it.
+- A group member other than the payer receives `403` with code `expense_delete_forbidden`, including after deletion.
+- Authenticate first and check group access before expense lookup. Missing/inaccessible groups return `404 group_not_found`; an absent expense or an expense belonging to another group returns `404 expense_not_found`.
+- The flag update commits as one transaction. A failed commit rolls back the change, allowing a later retry.
+
+The brief leaves the success representation and repeated-delete status open; the empty 204/repeated-204 behavior is the documented implementation choice.
+
+## Still planned after this checkpoint
 
 | Endpoint | Remaining behavior |
 | --- | --- |
-| `DELETE /groups/{group_id}/expenses/{expense_id}` | Payer-only soft deletion, retaining the record and excluding it from balances |
 | `GET /groups/{group_id}/balances` | Per-member net balances with positive meaning money owed to that member; exact zero-sum total |
 
 For the dinner example, eventual balances are `+666.66`, `-333.33`, `-333.33` for alice/bob/carol. These values explain the assessment's sign convention; this milestone does not provide a balances response.

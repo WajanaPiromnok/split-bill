@@ -14,6 +14,12 @@ def get_expense_by_key(session: Session, group_id: int, key: str) -> Expense | N
     )
 
 
+def get_group_expense(session: Session, group_id: int, expense_id: int) -> Expense | None:
+    return session.scalar(
+        select(Expense).where(Expense.group_id == group_id, Expense.id == expense_id)
+    )
+
+
 def insert_expense(
     session: Session,
     *,

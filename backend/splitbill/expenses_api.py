@@ -41,3 +41,20 @@ def create_expense(
 @router.get("", response_model=list[ExpenseResponse], responses=ERROR_RESPONSES)
 def list_expenses(group_id: int, session: DatabaseSession, username: CurrentUser):
     return expenses.list_expenses(session, group_id, username)
+
+
+@router.delete(
+    "/{expense_id}",
+    status_code=204,
+    response_class=Response,
+    responses={
+        **ERROR_RESPONSES,
+        403: {"model": ErrorResponse, "description": "Only the payer may delete the expense"},
+        404: {"model": ErrorResponse, "description": "Group or expense not found or inaccessible"},
+    },
+)
+def delete_expense(
+    group_id: int, expense_id: int, session: DatabaseSession, username: CurrentUser
+) -> Response:
+    expenses.delete_expense(session, group_id, expense_id, username)
+    return Response(status_code=204)

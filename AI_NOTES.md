@@ -89,3 +89,11 @@ Verification and remote delivery results for this milestone are recorded after t
 The GET contract test was observed failing with 405 before adding the route, then passed. An independent test agent added listing cases with independently controlled timestamps, including an older high-ID expense and newer low-ID expense, group isolation, ordered exact shares and retained soft-deleted rows. The GET implementation fetches shares in bulk and orders active expenses by `created_at DESC, id DESC`.
 
 Final local milestone verification: **115 tests passed** on PostgreSQL 16, including 59 POST cases and 13 GET cases. Ruff lint/format and the generated OpenAPI check passed. Real HTTP checks against Uvicorn confirmed create 201, replay 200 with the original record, exact split creation, newest-first listing, group denial 404 and invalid exact total 422. These are local results; remote CI, merge and final SHA are recorded separately in the milestone handoff.
+
+## Payer-only deletion and balances (2026-11-03)
+
+The user authorized the two remaining backend routes. Codex compared the original brief with the existing model and API contract, documented the unspecified response choices, and implemented deletion. Independent agents wrote real PostgreSQL acceptance tests and reviewed the design and DELETE diff. The user's `.env.example` changes remain excluded.
+
+Before implementing DELETE, a suite run observed **16 new DELETE failures caused by the absent route and 115 existing tests passing**. After implementation all 16 DELETE cases passed, including payer/creator distinction, a payer omitted from the split, retained expense/share/key data, no resurrection on POST replay, cross-group IDs, nonpayer denial even after deletion, and rollback after a forced failure following a real flush. The independent review found no material DELETE defect. The chosen empty 204 response and repeat-204 behavior are assumptions documented in README/API contract, not status codes prescribed by the brief.
+
+The DELETE checkpoint passed **131 tests** (existing 115 plus 16 DELETE), Ruff lint/format and OpenAPI consistency. The separately drafted balances test file was explicitly excluded from this checkpoint because that route had not been implemented; it is not claimed as a passing full milestone suite.
