@@ -10,14 +10,14 @@ SplitBill เป็นเว็บแบ่งค่าใช้จ่ายใ�
 
 ในกลุ่มเพิ่มบิลได้ทั้งหารเท่ากันและกำหนดจำนวนเอง มีส่วนแบ่งให้ดูก่อนบันทึก ถ้ายอด exact ยังไม่ตรงกับบิล ปุ่มบันทึกจะกดไม่ได้ ด้านข้างเป็นยอดสุทธิของสมาชิก และด้านล่างเป็นรายการค่าใช้จ่ายล่าสุด คนที่จ่ายเงินจะเห็นปุ่มลบบิลของตัวเอง
 
-| API | ใช้ทำอะไร |
-| --- | --- |
-| `GET /groups` | ดูกลุ่มของผู้ใช้ที่ส่ง request |
-| `GET /groups/{group_id}` | ดูชื่อกลุ่มและสมาชิก |
-| `POST /groups/{group_id}/expenses` | เพิ่มค่าใช้จ่าย |
-| `GET /groups/{group_id}/expenses` | ดูค่าใช้จ่าย เรียงรายการใหม่ก่อน |
-| `DELETE /groups/{group_id}/expenses/{expense_id}` | ลบค่าใช้จ่าย เฉพาะคนที่จ่าย |
-| `GET /groups/{group_id}/balances` | ดูยอดสุทธิของสมาชิกแต่ละคน |
+| API                                               | ใช้ทำอะไร                        |
+| ------------------------------------------------- | -------------------------------- |
+| `GET /groups`                                     | ดูกลุ่มของผู้ใช้ที่ส่ง request   |
+| `GET /groups/{group_id}`                          | ดูชื่อกลุ่มและสมาชิก             |
+| `POST /groups/{group_id}/expenses`                | เพิ่มค่าใช้จ่าย                  |
+| `GET /groups/{group_id}/expenses`                 | ดูค่าใช้จ่าย เรียงรายการใหม่ก่อน |
+| `DELETE /groups/{group_id}/expenses/{expense_id}` | ลบค่าใช้จ่าย เฉพาะคนที่จ่าย      |
+| `GET /groups/{group_id}/balances`                 | ดูยอดสุทธิของสมาชิกแต่ละคน       |
 
 รายละเอียด request, response และ error อยู่ใน [API contract](docs/api-contract.md) และ [OpenAPI schema](docs/openapi.json) หรือเปิด `/docs` ตอนรัน backend ได้เลย
 
@@ -32,14 +32,14 @@ Browser เรียก FastAPI ตรงผ่าน HTTP/JSON แล้ว bac
 
 [เปิดแผนภาพ HTML แบบ offline](docs/architecture/stack.html) · [ภาพพื้นสว่าง](docs/architecture/stack.png) · [ภาพพื้นมืด](docs/architecture/stack-dark.png) · [คำอธิบายระบบ](docs/architecture/README.md)
 
-| ส่วน | ที่ใช้ |
-| --- | --- |
-| หน้าเว็บ | Next.js, React, TypeScript, Tailwind CSS |
-| API | Python 3.12 ขึ้นไป, FastAPI, Uvicorn |
-| ฐานข้อมูล | PostgreSQL 16, SQLAlchemy 2, psycopg 3 |
-| เตรียม schema | Alembic และ Python seed script |
-| ตรวจงาน | pytest, Ruff, ESLint, TypeScript, Node tests และ Playwright กับ PostgreSQL จริง |
-| CI | GitHub Actions |
+| ส่วน          | ที่ใช้                                                                          |
+| ------------- | ------------------------------------------------------------------------------- |
+| หน้าเว็บ      | Next.js, React, TypeScript, Tailwind CSS                                        |
+| API           | Python 3.12 ขึ้นไป, FastAPI, Uvicorn                                            |
+| ฐานข้อมูล     | PostgreSQL 16, SQLAlchemy 2, psycopg 3                                          |
+| เตรียม schema | Alembic และ Python seed script                                                  |
+| ตรวจงาน       | pytest, Ruff, ESLint, TypeScript, Node tests และ Playwright กับ PostgreSQL จริง |
+| CI            | GitHub Actions                                                                  |
 
 ไฟล์หลักในโปรเจกต์อยู่ประมาณนี้ครับ
 
@@ -71,10 +71,8 @@ AI_NOTES.md      การใช้ AI, ข้อผิดพลาดที่�
 
 ### 1. Clone branch และเข้าโฟลเดอร์โปรเจกต์
 
-รอบนี้ตัวเต็มอยู่บน `dev/frontend` จึง clone branch นี้ได้ก่อนที่ผมจะรวม PR เข้า `main`
-
 ```sh
-git clone --branch dev/frontend https://github.com/WajanaPiromnok/split-bill.git
+git clone https://github.com/WajanaPiromnok/split-bill.git
 cd split-bill
 ```
 
@@ -134,11 +132,11 @@ python3.12 -c 'from getpass import getpass; from urllib.parse import quote; prin
 
 ตอน `psql` ถาม Password ให้ใช้รหัสเดิมที่ตั้งไว้ ส่วนค่าที่ encode ใช้เฉพาะใน URL ของ `.env` เท่านั้น ไฟล์ `.env` อยู่ใน `.gitignore` และใช้กับเครื่องตัวเอง จึงไม่ต้อง commit ไฟล์นี้
 
-| ตัวแปร | ใช้กับอะไร |
-| --- | --- |
-| `DATABASE_URL` | ฐานข้อมูลแอป ใช้ scheme `postgresql+psycopg://` |
-| `TEST_DATABASE_URL` | ฐานทดสอบ PostgreSQL 16 ที่แยกจากแอป |
-| `CORS_ORIGINS` | origin ของ frontend ที่อนุญาต ค่าเริ่มต้นคือ `http://localhost:3000` |
+| ตัวแปร              | ใช้กับอะไร                                                           |
+| ------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`      | ฐานข้อมูลแอป ใช้ scheme `postgresql+psycopg://`                      |
+| `TEST_DATABASE_URL` | ฐานทดสอบ PostgreSQL 16 ที่แยกจากแอป                                  |
+| `CORS_ORIGINS`      | origin ของ frontend ที่อนุญาต ค่าเริ่มต้นคือ `http://localhost:3000` |
 
 Backend อ่าน `.env` ที่ root ของ repository ถ้ามี environment variable ชื่อเดียวกันใน terminal ค่านั้นจะมีผลก่อน `.env` หลังเปลี่ยนค่าต้องเริ่ม backend ใหม่
 
@@ -178,10 +176,10 @@ API อยู่ที่ `http://127.0.0.1:8000` ดู Swagger ได้ที
 
 Seed มีผู้ใช้ `alice`, `bob`, `carol`, `dan` และสองกลุ่มนี้ รัน seed ซ้ำได้โดยไม่สร้างสมาชิกซ้ำ
 
-| กลุ่ม | ชื่อ | สมาชิก |
-| --- | --- | --- |
-| `1` | Chiang Mai trip | alice, bob, carol |
-| `2` | Office lunch | bob, dan |
+| กลุ่ม | ชื่อ            | สมาชิก            |
+| ----- | --------------- | ----------------- |
+| `1`   | Chiang Mai trip | alice, bob, carol |
+| `2`   | Office lunch    | bob, dan          |
 
 ลองอ่านกลุ่มผ่าน terminal ได้ดังนี้
 
@@ -216,7 +214,10 @@ curl -i -X POST http://127.0.0.1:8000/groups/1/expenses \
 ถ้าจะลองเพิ่มอีกบิลแบบกำหนดจำนวนเอง ให้เปลี่ยน `Idempotency-Key` เป็น `dinner-example-002` และใช้ค่านี้แทนค่า `split` ใน body เดิม ส่วนแบ่งต้องรวมได้ `100.00`
 
 ```json
-{ "type": "exact", "shares": { "alice": "50.00", "bob": "30.00", "carol": "20.00" } }
+{
+  "type": "exact",
+  "shares": { "alice": "50.00", "bob": "30.00", "carol": "20.00" }
+}
 ```
 
 ดูตัวอย่าง response และ error ของแต่ละกรณีใน [API contract](docs/api-contract.md)
