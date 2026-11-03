@@ -20,6 +20,17 @@ An existing group that the requester cannot access returns `404`, using the same
 
 See [the API contract](docs/api-contract.md) for requests, responses and errors, and [the Git workflow](docs/git-workflow.md) for milestone and handoff rules. The generated [OpenAPI schema](docs/openapi.json) describes implemented endpoints only.
 
+## System stack
+
+The [architecture guide](docs/architecture/README.md) explains the implemented backend and the planned Next.js / TypeScript / Tailwind CSS frontend. The planned browser UI calls FastAPI directly over HTTP/JSON. PostgreSQL stores the application data; a separate database supports integration tests. Hosting has not been selected.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/stack-dark.png">
+  <img alt="SplitBill stack: planned frontend, implemented FastAPI backend, PostgreSQL, setup tools and GitHub Actions checks" src="docs/architecture/stack.png">
+</picture>
+
+[Open the self-contained HTML](docs/architecture/stack.html) · [Light PNG](docs/architecture/stack.png) · [Dark PNG](docs/architecture/stack-dark.png)
+
 ## Requirements
 
 - Python 3.12 or later; use a matching interpreter when creating the virtual environment.
