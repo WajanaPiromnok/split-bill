@@ -216,17 +216,96 @@ a {
   letter-spacing: 0;
   color: var(--color-muted);
 }
-.user-control {
+.profile-control,
+.profile-identity {
   display: flex;
   align-items: center;
+  gap: 16px;
+}
+.profile-identity {
+  gap: 8px;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.page-shell.entry-shell {
+  min-height: calc(100svh - 204px);
+  padding-top: clamp(40px, 9vh, 96px);
+}
+.profile-entry {
+  width: min(100%, 440px);
+  margin: 0 auto;
+  text-align: center;
+}
+.profile-entry h1 {
+  font-size: 28px;
+}
+.entry-description {
+  margin-top: 8px;
+  color: var(--color-muted);
+  font-size: 15px;
+}
+.profile-list {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  margin-top: 32px;
+}
+.profile-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-control-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-size: 16px;
+  font-weight: 550;
+  text-align: left;
+}
+.profile-choice:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+.profile-choice:active {
+  background: var(--color-selected);
+}
+.profile-choice .avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+.profile-choice svg {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.entry-note {
+  margin-top: 24px;
   color: var(--color-muted);
   font-size: 13px;
 }
-.user-control select {
-  width: 130px;
-  color: var(--color-ink);
-  font-weight: 600;
+.profile-exit-confirm {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--color-control-rule);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+.profile-exit-confirm h2 {
+  font-size: 18px;
+}
+.profile-exit-confirm p {
+  margin-top: 4px;
+  color: var(--color-muted);
+}
+.exit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
 }
 .page-shell {
   max-width: 1248px;
@@ -910,21 +989,35 @@ details[open] summary::after {
   .brand-caption {
     font-size: 10px;
   }
-  .user-control {
+  .profile-control {
     flex-direction: column;
-    align-items: start;
-    gap: 3px;
+    align-items: end;
+    gap: 4px;
+  }
+  .profile-identity .avatar {
+    width: 24px;
+    height: 24px;
     font-size: 11px;
   }
-  .user-control select {
-    width: 104px;
-    min-height: 44px;
-    padding: 8px 10px;
-    padding-inline-end: 40px;
-    font-size: 16px;
+  .profile-control .button {
+    padding: 8px 12px;
+    font-size: 12px;
   }
   .page-shell {
     padding: 24px 20px 40px;
+  }
+  .page-shell.entry-shell {
+    padding-top: 40px;
+    min-height: calc(100svh - 192px);
+  }
+  .profile-entry h1 {
+    font-size: 26px;
+  }
+  .entry-description {
+    font-size: 14px;
+  }
+  .exit-actions .button {
+    width: 100%;
   }
   .group-heading {
     display: block;
@@ -1036,8 +1129,7 @@ details[open] summary::after {
   }
 }
 @media (forced-colors: active) {
-  select,
-  .user-control select {
+  select {
     appearance: auto;
     background-image: none;
     padding-inline-end: 13px;

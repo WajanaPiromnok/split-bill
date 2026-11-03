@@ -73,6 +73,8 @@ jobs:
           path: |
             design-system/frontend-desktop.png
             design-system/frontend-mobile.png
+            design-system/frontend-entry-desktop.png
+            design-system/frontend-entry-mobile.png
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4

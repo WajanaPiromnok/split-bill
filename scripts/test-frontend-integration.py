@@ -81,16 +81,48 @@ async def browser_checks(
         page = await context.new_page()
         console_errors: list[str] = []
         page.on("pageerror", lambda error: console_errors.append(str(error)))
+        api_requests: list = []
+        page.on(
+            "request",
+            lambda request: (
+                api_requests.append(request)
+                if request.url.startswith(api_url)
+                else None
+            ),
+        )
         try:
             await page.goto(web_url)
-            user = page.get_by_label("ผู้ใช้", exact=True)
+            entry = page.get_by_role("heading", name="คุณคือใคร?", exact=True)
+            exit_profile = page.get_by_role("button", name="เปลี่ยนผู้ใช้", exact=True)
             group = page.get_by_label("กลุ่ม", exact=True)
             form = page.get_by_test_id("expense-form")
             ledger = page.get_by_role("region", name="ยอดสุทธิของสมาชิก", exact=True)
             rows = page.get_by_test_id("expense-row")
 
+            async def choose_user(name: str) -> None:
+                await expect(entry).to_be_visible()
+                await page.get_by_role("button", name=name, exact=True).click()
+                await expect(
+                    page.get_by_role("banner").get_by_text(name, exact=True)
+                ).to_be_visible()
+
+            async def leave_profile() -> None:
+                await exit_profile.click()
+                discard = page.get_by_role(
+                    "button", name="ทิ้งร่างและเปลี่ยนผู้ใช้", exact=True
+                )
+                await expect(entry.or_(discard)).to_be_visible()
+                if await discard.is_visible():
+                    await discard.click()
+                await expect(entry).to_be_visible()
+                await expect(entry).to_be_focused()
+                await expect(form).to_have_count(0)
+                await expect(group).to_have_count(0)
+
             async def switch_user(name: str, group_id: str) -> None:
-                await user.select_option(name)
+                if await exit_profile.is_visible():
+                    await leave_profile()
+                await choose_user(name)
                 await expect(group).to_have_value(group_id)
                 await expect(form).to_be_visible()
                 await expect(ledger).to_be_visible()
@@ -124,6 +156,111 @@ async def browser_checks(
                         {"description": description},
                     ).scalar_one()
 
+            await expect(entry).to_be_visible()
+            await expect(group).to_have_count(0)
+            for name in ("alice", "bob", "carol", "dan"):
+                await expect(
+                    page.get_by_role("button", name=name, exact=True)
+                ).to_be_visible()
+            await page.evaluate(
+                "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+            )
+            assert not api_requests, "The entry view selected a user or read API data"
+            screenshot_dir.mkdir(parents=True, exist_ok=True)
+            for width, height, name in [(1440, 1000, "desktop"), (390, 844, "mobile")]:
+                await page.set_viewport_size({"width": width, "height": height})
+                await page.evaluate("document.fonts.ready")
+                await page.locator(".brand-mark").evaluate("image => image.decode()")
+                assert await page.evaluate(
+                    "document.documentElement.scrollWidth <= window.innerWidth"
+                ), f"Entry view horizontal overflow at {width}px"
+                await page.screenshot(
+                    path=str(screenshot_dir / f"frontend-entry-{name}.png"),
+                    full_page=True,
+                )
+            for width in (375, 768, 1024):
+                await page.set_viewport_size({"width": width, "height": 1024})
+                assert await page.evaluate(
+                    "document.documentElement.scrollWidth <= window.innerWidth"
+                ), f"Entry view horizontal overflow at {width}px"
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            carol_profile = page.get_by_role("button", name="carol", exact=True)
+            await carol_profile.focus()
+            await carol_profile.press("Enter")
+            await expect(group).to_have_value("1")
+            await expect(ledger).to_contain_text("carol")
+            await expect(group.locator('option[value="2"]')).to_have_count(0)
+            await page.reload()
+            await expect(ledger).to_contain_text("carol")
+            await expect(
+                page.get_by_role("banner").get_by_text("carol", exact=True)
+            ).to_be_visible()
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.user.v1')")
+                == "carol"
+            ), "Reload did not retain the selected tab profile"
+            other_tab = await context.new_page()
+            try:
+                await other_tab.goto(web_url)
+                await expect(
+                    other_tab.get_by_role("heading", name="คุณคือใคร?", exact=True)
+                ).to_be_visible()
+            finally:
+                await other_tab.close()
+            await leave_profile()
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.user.v1')")
+                is None
+            ), "Profile exit retained the selected user"
+            print(
+                "PASS entry chooser, no preselection/API reads, keyboard, tab-local reload and exit focus"
+            )
+
+            await switch_user("alice", "1")
+            await fill_expense("ร่างที่ยังไม่บันทึก", "100.00", "bob")
+            await form.get_by_role("radio", name="กำหนดจำนวนเอง", exact=True).check()
+            for member, share in [
+                ("alice", "10.00"),
+                ("bob", "20.00"),
+                ("carol", "70.00"),
+            ]:
+                await form.get_by_label(f"จำนวนของ {member}", exact=False).fill(share)
+            await exit_profile.click()
+            back_to_draft = page.get_by_role("button", name="กลับไปแก้บิล", exact=True)
+            await expect(back_to_draft).to_be_focused()
+            await back_to_draft.press("Enter")
+            await expect(exit_profile).to_be_focused()
+            await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value(
+                "ร่างที่ยังไม่บันทึก"
+            )
+            await expect(form.get_by_label("จำนวนเงิน (บาท)", exact=True)).to_have_value(
+                "100.00"
+            )
+            await expect(form.get_by_label("จ่ายโดย", exact=False)).to_have_value("bob")
+            await expect(
+                form.get_by_role("radio", name="กำหนดจำนวนเอง", exact=True)
+            ).to_be_checked()
+            for member, share in [
+                ("alice", "10.00"),
+                ("bob", "20.00"),
+                ("carol", "70.00"),
+            ]:
+                await expect(
+                    form.get_by_label(f"จำนวนของ {member}", exact=False)
+                ).to_have_value(share)
+            assert sql_count("ร่างที่ยังไม่บันทึก") == 0
+            await leave_profile()
+            await expect(form).to_have_count(0)
+            await switch_user("alice", "1")
+            await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value("")
+            await expect(form.get_by_label("จำนวนเงิน (บาท)", exact=True)).to_have_value(
+                ""
+            )
+            print(
+                "PASS unsaved draft cancellation preserves values; explicit exit discards the draft"
+            )
+
+            await leave_profile()
             await switch_user("alice", "1")
             await expect(group.locator('option[value="1"]')).to_have_count(1)
             await expect(group.locator('option[value="2"]')).to_have_count(0)
@@ -184,6 +321,8 @@ async def browser_checks(
             # The backend really commits this request; only its first response is lost.
             posted: list[tuple[str, str]] = []
             lost_once = False
+            post_committed = asyncio.Event()
+            post_release = asyncio.Event()
 
             async def lose_first_response(route) -> None:
                 nonlocal lost_once
@@ -203,6 +342,8 @@ async def browser_checks(
                     assert response.status == 201, (
                         "Lost-response request did not commit"
                     )
+                    post_committed.set()
+                    await post_release.wait()
                     await route.abort("failed")
                 else:
                     await route.continue_()
@@ -211,13 +352,53 @@ async def browser_checks(
             await fill_expense("ส่งซ้ำหลังเน็ตหลุด", "100.00")
             await form.get_by_role("radio", name="หารเท่ากัน", exact=True).check()
             await form.get_by_role("button", name="บันทึกค่าใช้จ่าย", exact=True).click()
+            await asyncio.wait_for(post_committed.wait(), timeout=20)
+            await expect(exit_profile).to_be_disabled()
+            post_release.set()
             retry = page.get_by_role("button", name="ลองส่งรายการเดิมอีกครั้ง", exact=True)
             await expect(retry).to_be_visible()
             await expect(retry).to_be_enabled()
+            await expect(exit_profile).to_be_disabled()
             assert sql_count("ส่งซ้ำหลังเน็ตหลุด") == 1
+            frozen_pending = await page.evaluate(
+                "sessionStorage.getItem('splitbill.pending.v1')"
+            )
+            await page.evaluate("""() => {
+                sessionStorage.setItem('splitbill.user.v1', 'dan');
+                sessionStorage.setItem('splitbill.test.fail-profile-write', '1');
+            }""")
+            await page.add_init_script("""(() => {
+                window.__failProfileWrite = sessionStorage.getItem(
+                    'splitbill.test.fail-profile-write') === '1';
+                const original = Storage.prototype.setItem;
+                Storage.prototype.setItem = function(key, value) {
+                    if (key === 'splitbill.user.v1' && window.__failProfileWrite)
+                        throw new DOMException('Simulated profile storage failure', 'QuotaExceededError');
+                    return original.call(this, key, value);
+                };
+            })();""")
+            reload_requests = len(api_requests)
             await page.reload()
             await expect(retry).to_be_visible()
             await expect(retry).to_be_enabled()
+            await expect(group).to_have_value("1")
+            await expect(ledger).to_contain_text("alice")
+            await expect(
+                page.get_by_role("banner").get_by_text("alice", exact=True)
+            ).to_be_visible()
+            await expect(exit_profile).to_be_disabled()
+            await expect(
+                page.get_by_role("button", name="ตรวจรายการแล้ว เริ่มบิลใหม่", exact=True)
+            ).to_have_count(0)
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.pending.v1')")
+                == frozen_pending
+            ), "Profile storage failure lost the unresolved request"
+            assert all(
+                request.headers.get("x-user") != "dan"
+                for request in api_requests[reload_requests:]
+                if request.method != "OPTIONS"
+            ), "A saved profile overrode the unresolved expense owner during reload"
             async with page.expect_response(
                 lambda response: (
                     response.request.method == "POST"
@@ -228,18 +409,55 @@ async def browser_checks(
             assert (await retry_info.value).status == 200, (
                 "Retry did not replay the original"
             )
+            await expect(retry).to_be_enabled()
+            await expect(exit_profile).to_be_disabled()
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.pending.v1')")
+                == frozen_pending
+            ), "A replay cleared pending before its owner was persisted"
+            assert sql_count("ส่งซ้ำหลังเน็ตหลุด") == 1
+            await page.evaluate("""() => {
+                window.__failProfileWrite = false;
+                sessionStorage.removeItem('splitbill.test.fail-profile-write');
+            }""")
+            async with page.expect_response(
+                lambda response: (
+                    response.request.method == "POST"
+                    and response.url.endswith("/expenses")
+                )
+            ) as recovered_retry_info:
+                await retry.click()
+            assert (await recovered_retry_info.value).status == 200
             await expect(rows).to_have_count(3)
+            await expect(exit_profile).to_be_enabled()
+            assert (
+                await page.evaluate("sessionStorage.getItem('splitbill.pending.v1')")
+                is None
+            ), "The confirmed request was not cleared after storage recovered"
             await expect(form.get_by_label("รายละเอียด", exact=True)).to_have_value("")
             await expect(
                 form.get_by_role("button", name="บันทึกค่าใช้จ่าย", exact=True)
             ).to_be_disabled()
-            assert len(posted) == 2 and posted[0] == posted[1] and posted[0][0], (
-                "A retry changed the original key or frozen request body"
-            )
+            assert (
+                len(posted) == 3
+                and all(attempt == posted[0] for attempt in posted)
+                and posted[0][0]
+            ), "A retry changed the original key or frozen request body"
             assert sql_count("ส่งซ้ำหลังเน็ตหลุด") == 1
             await page.unroute(f"{api_url}/groups/1/expenses", lose_first_response)
+            await page.reload()
+            await expect(group).to_have_value("1")
+            await expect(ledger).to_contain_text("alice")
+            await expect(
+                page.get_by_role("banner").get_by_text("alice", exact=True)
+            ).to_be_visible()
+            await expect(ledger).not_to_contain_text("dan")
+            await expect(exit_profile).to_be_enabled()
             print(
-                "PASS real committed request + simulated response loss, reload, same-key replay"
+                "PASS real committed request + simulated response loss, locked exit, owner restore and same-key replay"
+            )
+            print(
+                "PASS profile storage failure retains the frozen pending request until same-key recovery"
             )
 
             await switch_user("bob", "1")
@@ -255,12 +473,31 @@ async def browser_checks(
             await expect(
                 page.get_by_role("button", name="ยืนยันลบ", exact=True)
             ).to_be_focused()
+            delete_committed = asyncio.Event()
+            delete_release = asyncio.Event()
+
+            async def hold_delete_response(route) -> None:
+                if route.request.method != "DELETE":
+                    await route.continue_()
+                    return
+                response = await route.fetch()
+                assert response.status == 204, "Held payer deletion did not commit"
+                delete_committed.set()
+                await delete_release.wait()
+                await route.fulfill(response=response)
+
+            await page.route(f"{api_url}/groups/1/expenses/*", hold_delete_response)
             async with page.expect_response(
                 lambda response: response.request.method == "DELETE"
             ) as deletion_info:
                 await page.keyboard.press("Enter")
+                await asyncio.wait_for(delete_committed.wait(), timeout=20)
+                await expect(exit_profile).to_be_disabled()
+                delete_release.set()
             assert (await deletion_info.value).status == 204
             await expect(rows).to_have_count(2)
+            await expect(exit_profile).to_be_enabled()
+            await page.unroute(f"{api_url}/groups/1/expenses/*", hold_delete_response)
             await expect(rows.filter(has_text="มื้อเย็นทดสอบ")).to_have_count(0)
             await expect(ledger).to_contain_text("66.86")
             await expect(ledger).to_contain_text("-33.53")
@@ -274,7 +511,9 @@ async def browser_checks(
                     ).scalar_one()
                     is True
                 )
-            print("PASS real payer deletion, retained PostgreSQL row, refreshed list")
+            print(
+                "PASS real payer deletion, locked profile exit, retained PostgreSQL row and refreshed list"
+            )
 
             # Independent HTTP assertions distinguish a hidden UI control from authorization.
             request = context.request
@@ -389,7 +628,8 @@ async def browser_checks(
 
             await page.route(f"{api_url}/groups/1/balances", delayed_balance)
             await switch_user("dan", "2")
-            await user.select_option("alice")
+            await leave_profile()
+            await choose_user("alice")
             await asyncio.wait_for(delayed.wait(), timeout=20)
             await switch_user("dan", "2")
             release.set()
@@ -472,6 +712,7 @@ async def browser_checks(
                         .filter(animation => Number.isFinite(animation.effect?.getTiming().iterations ?? 1))
                         .map(animation => animation.finished.catch(() => {})));
                 }""")
+                await page.locator(".brand-mark").evaluate("image => image.decode()")
                 assert await page.evaluate(
                     "document.documentElement.scrollWidth <= window.innerWidth"
                 ), f"Horizontal overflow at {width}px"
@@ -492,7 +733,7 @@ async def browser_checks(
                 "PASS 375/390/768/1024/1440px overflow checks, reduced motion, no uncaught browser errors"
             )
             print(
-                f"Screenshots: {screenshot_dir.relative_to(ROOT)} / frontend-desktop.png, frontend-mobile.png"
+                f"Screenshots: {screenshot_dir} / frontend[-entry]-desktop.png, frontend[-entry]-mobile.png"
             )
         except (AssertionError, PlaywrightError, TimeoutError) as error:
             failure_dir = Path(tempfile.mkdtemp(prefix="splitbill-frontend-failure-"))

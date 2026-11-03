@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import Image from "next/image";
-import ExpenseForm from "./expense-form";
+import ExpenseForm, { type ExpenseFormHandle } from "./expense-form";
 import {
   api,
   ApiError,
@@ -17,6 +23,7 @@ import { formatMoney, parseBalance } from "../lib/money";
 import { decodePending, PENDING_KEY } from "../lib/pending";
 
 const USERS = ["alice", "bob", "carol", "dan"];
+const PROFILE_KEY = "splitbill.user.v1";
 type Snapshot = {
   group: GroupDetail;
   expenses: Expense[];
@@ -24,7 +31,7 @@ type Snapshot = {
 };
 
 export default function Workspace() {
-  const [user, setUser] = useState("alice");
+  const [user, setUser] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
   const [groupsState, setGroupsState] = useState<{
     user: string;
@@ -35,6 +42,12 @@ export default function Workspace() {
   const [pending, setPending] = useState<PendingExpense | null>(null);
   const [restored, setRestored] = useState(false);
   const [storageError, setStorageError] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [working, setWorking] = useState(false);
+  const mutationBusyRef = useRef(false);
+  const exitGuardRef = useRef<(() => void) | null>(null);
+  const entryHeading = useRef<HTMLHeadingElement>(null);
+  const focusEntry = useRef(false);
 
   useEffect(() => {
     // sessionStorage is tab-local and unavailable during server rendering.
@@ -51,6 +64,16 @@ export default function Workspace() {
         setPending(saved);
         setUser(saved.user);
         setGroupId(saved.group);
+        try {
+          sessionStorage.setItem(PROFILE_KEY, saved.user);
+        } catch {
+          setProfileError(
+            "เบราว์เซอร์จำผู้ใช้เดิมไม่ได้ รายการรอยืนยันยังถูกเก็บไว้ กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วลองส่งรายการเดิมอีกครั้ง",
+          );
+        }
+      } else {
+        const profile = sessionStorage.getItem(PROFILE_KEY);
+        if (profile && USERS.includes(profile)) setUser(profile);
       }
     } catch {
       setStorageError(
@@ -60,7 +83,7 @@ export default function Workspace() {
   }, []);
 
   useEffect(() => {
-    if (!restored) return;
+    if (!restored || user === null) return;
     const controller = new AbortController();
     api<Group[]>("/groups", user, { signal: controller.signal })
       .then((groups) => {
@@ -81,17 +104,64 @@ export default function Workspace() {
     return () => controller.abort();
   }, [user, groupsVersion, restored, pending?.user, pending?.group]);
 
+  useEffect(() => {
+    if (restored && user === null && focusEntry.current) {
+      entryHeading.current?.focus();
+      focusEntry.current = false;
+    }
+  }, [restored, user]);
+
+  function chooseUser(name: string) {
+    try {
+      sessionStorage.setItem(PROFILE_KEY, name);
+      setProfileError("");
+      setUser(name);
+    } catch {
+      setProfileError(
+        "เบราว์เซอร์จำผู้ใช้ไม่ได้ กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วเลือกชื่ออีกครั้ง",
+      );
+    }
+  }
+
+  const exitProfile = useCallback(() => {
+    if (mutationBusyRef.current) return;
+    try {
+      sessionStorage.removeItem(PROFILE_KEY);
+    } catch {
+      setProfileError(
+        "เบราว์เซอร์ล้างผู้ใช้เดิมไม่ได้ กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วลองอีกครั้ง",
+      );
+      return;
+    }
+    focusEntry.current = true;
+    setUser(null);
+    setGroupId(null);
+    setGroupsState(null);
+    setGroupsError("");
+    setProfileError("");
+  }, []);
+
   const groups = groupsState?.user === user ? groupsState.groups : null;
   function updatePending(value: PendingExpense | null) {
     if (value) sessionStorage.setItem(PENDING_KEY, JSON.stringify(value));
     else {
+      try {
+        if (user) sessionStorage.setItem(PROFILE_KEY, user);
+      } catch {
+        setProfileError(
+          "เบราว์เซอร์จำผู้ใช้ไม่ได้ กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วลองส่งรายการเดิมอีกครั้ง",
+        );
+        return false;
+      }
       try {
         sessionStorage.removeItem(PENDING_KEY);
       } catch {
         /* Replaying a retained key remains safe. */
       }
     }
+    setProfileError("");
     setPending(value);
+    return true;
   }
 
   return (
@@ -113,109 +183,184 @@ export default function Workspace() {
             SplitBill<span className="brand-caption">แบ่งบิลให้ลงตัว</span>
           </span>
         </a>
-        <label className="user-control">
-          <span>กำลังใช้งานเป็น</span>
-          <select
-            aria-label="ผู้ใช้"
-            value={user}
-            disabled={!!pending}
-            onChange={(event) => {
-              setUser(event.target.value);
-              setGroupId(null);
-              setGroupsState(null);
-              setGroupsError("");
-            }}
-          >
-            {USERS.map((name) => (
-              <option key={name}>{name}</option>
-            ))}
-          </select>
-        </label>
+        {user && (
+          <div className="profile-control">
+            <span
+              className="profile-identity"
+              aria-label={`ผู้ใช้ปัจจุบัน ${user}`}
+            >
+              <span className="avatar" aria-hidden="true">
+                {user[0].toUpperCase()}
+              </span>
+              <span>{user}</span>
+            </span>
+            <button
+              id="change-user"
+              className="button secondary compact"
+              disabled={!!pending || working}
+              title={
+                pending
+                  ? "ยืนยันบิลเดิมก่อนเปลี่ยนผู้ใช้"
+                  : working
+                    ? "รอให้ทำรายการเสร็จก่อนเปลี่ยนผู้ใช้"
+                    : undefined
+              }
+              onClick={() => {
+                if (pending || mutationBusyRef.current) return;
+                if (exitGuardRef.current) exitGuardRef.current();
+                else exitProfile();
+              }}
+            >
+              เปลี่ยนผู้ใช้
+            </button>
+          </div>
+        )}
       </header>
-      <main id="workspace" className="page-shell">
-        <div className="group-heading">
-          <div>
-            <p className="context-label">ค่าใช้จ่ายของกลุ่ม</p>
-            <h1>
-              {groups?.find((group) => group.id === groupId)?.name ??
-                (groups ? "เลือกกลุ่มของคุณ" : "มาแบ่งบิลกัน")}
+      <main
+        id="workspace"
+        className={`page-shell${user === null ? " entry-shell" : ""}`}
+      >
+        {profileError && (
+          <div className="notice error" role="alert">
+            {profileError}
+          </div>
+        )}
+        {!restored ? (
+          <Loading />
+        ) : user === null ? (
+          <section className="profile-entry" aria-labelledby="entry-heading">
+            <h1 id="entry-heading" ref={entryHeading} tabIndex={-1}>
+              คุณคือใคร?
             </h1>
-          </div>
-          <label className="group-control">
-            <span>กลุ่ม</span>
-            <select
-              aria-label="กลุ่ม"
-              value={groupId ?? ""}
-              disabled={!groups || !!pending}
-              onChange={(event) => setGroupId(Number(event.target.value))}
-            >
-              {!groups?.length && (
-                <option value="">
-                  {groups ? "ยังไม่มีกลุ่ม" : "กำลังโหลดกลุ่ม…"}
-                </option>
-              )}
-              {pending &&
-                !groups?.some((group) => group.id === pending.group) && (
-                  <option value={pending.group}>
-                    กลุ่ม #{pending.group} · รายการรอยืนยัน
-                  </option>
-                )}
-              {groups?.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
+            <p className="entry-description">
+              เลือกชื่อเพื่อดูกลุ่มและเริ่มแบ่งบิล
+            </p>
+            <div className="profile-list">
+              {USERS.map((name) => (
+                <button
+                  className="profile-choice"
+                  key={name}
+                  onClick={() => chooseUser(name)}
+                >
+                  <span className="avatar" aria-hidden="true">
+                    {name[0].toUpperCase()}
+                  </span>
+                  <span>{name}</span>
+                  <svg
+                    aria-hidden="true"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
               ))}
-            </select>
-          </label>
-        </div>
-        {storageError && (
-          <div className="notice error" role="alert">
-            <p>{storageError}</p>
-            <button
-              className="button secondary"
-              onClick={() => {
-                try {
-                  sessionStorage.removeItem(PENDING_KEY);
-                  setStorageError("");
-                } catch {
-                  /* Keep the warning until storage is available. */
-                }
-              }}
-            >
-              ตรวจรายการแล้ว เริ่มบิลใหม่
-            </button>
-          </div>
-        )}
-        {groupsError && (
-          <div className="notice error" role="alert">
-            <p>{groupsError}</p>
-            <button
-              className="button secondary"
-              onClick={() => {
-                setGroupsError("");
-                setGroupsVersion((value) => value + 1);
-              }}
-            >
-              โหลดกลุ่มอีกครั้ง
-            </button>
-          </div>
-        )}
-        {!groups && !groupsError && <Loading />}
-        {groups?.length === 0 && !pending && (
-          <section className="empty-state">
-            <h2>ยังไม่มีกลุ่มสำหรับ {user}</h2>
-            <p>เลือกผู้ใช้อื่นเพื่อดูกลุ่มที่เข้าถึงได้</p>
+            </div>
+            <p className="entry-note">เลือกจากผู้ใช้ตัวอย่างของแอป</p>
           </section>
-        )}
-        {restored && groupId !== null && (
-          <GroupWorkspace
-            key={`${user}:${groupId}`}
-            user={user}
-            groupId={groupId}
-            pending={pending}
-            updatePending={updatePending}
-            storageError={!!storageError}
-          />
+        ) : (
+          <>
+            <div className="group-heading">
+              <div>
+                <p className="context-label">ค่าใช้จ่ายของกลุ่ม</p>
+                <h1>
+                  {groups?.find((group) => group.id === groupId)?.name ??
+                    (groups ? "เลือกกลุ่มของคุณ" : "มาแบ่งบิลกัน")}
+                </h1>
+              </div>
+              <label className="group-control">
+                <span>กลุ่ม</span>
+                <select
+                  aria-label="กลุ่ม"
+                  value={groupId ?? ""}
+                  disabled={!groups || !!pending || working}
+                  onChange={(event) => {
+                    if (!pending && !mutationBusyRef.current)
+                      setGroupId(Number(event.target.value));
+                  }}
+                >
+                  {!groups?.length && (
+                    <option value="">
+                      {groups ? "ยังไม่มีกลุ่ม" : "กำลังโหลดกลุ่ม…"}
+                    </option>
+                  )}
+                  {pending &&
+                    !groups?.some((group) => group.id === pending.group) && (
+                      <option value={pending.group}>
+                        กลุ่ม #{pending.group} · รายการรอยืนยัน
+                      </option>
+                    )}
+                  {groups?.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {storageError && (
+              <div className="notice error" role="alert">
+                <p>{storageError}</p>
+                {!pending && (
+                  <button
+                    className="button secondary"
+                    onClick={() => {
+                      if (pending) return;
+                      try {
+                        sessionStorage.removeItem(PENDING_KEY);
+                        setStorageError("");
+                      } catch {
+                        /* Keep the warning until storage is available. */
+                      }
+                    }}
+                  >
+                    ตรวจรายการแล้ว เริ่มบิลใหม่
+                  </button>
+                )}
+              </div>
+            )}
+            {groupsError && (
+              <div className="notice error" role="alert">
+                <p>{groupsError}</p>
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    setGroupsError("");
+                    setGroupsVersion((value) => value + 1);
+                  }}
+                >
+                  โหลดกลุ่มอีกครั้ง
+                </button>
+              </div>
+            )}
+            {!groups && !groupsError && <Loading />}
+            {groups?.length === 0 && !pending && (
+              <section className="empty-state">
+                <h2>ยังไม่มีกลุ่มสำหรับ {user}</h2>
+                <p>เลือกผู้ใช้อื่นเพื่อดูกลุ่มที่เข้าถึงได้</p>
+              </section>
+            )}
+            {restored && groupId !== null && (
+              <GroupWorkspace
+                key={`${user}:${groupId}`}
+                user={user}
+                groupId={groupId}
+                pending={pending}
+                updatePending={updatePending}
+                storageError={!!storageError}
+                busyRef={mutationBusyRef}
+                exitGuardRef={exitGuardRef}
+                onExit={exitProfile}
+                onWorkingChange={setWorking}
+              />
+            )}
+          </>
         )}
       </main>
       <footer className="page-footer">
@@ -243,12 +388,20 @@ function GroupWorkspace({
   pending,
   updatePending,
   storageError,
+  busyRef,
+  exitGuardRef,
+  onExit,
+  onWorkingChange,
 }: {
   user: string;
   groupId: number;
   pending: PendingExpense | null;
-  updatePending: (value: PendingExpense | null) => void;
+  updatePending: (value: PendingExpense | null) => boolean;
   storageError: boolean;
+  busyRef: RefObject<boolean>;
+  exitGuardRef: RefObject<(() => void) | null>;
+  onExit: () => void;
+  onWorkingChange: (working: boolean) => void;
 }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -259,11 +412,31 @@ function GroupWorkspace({
   const [actionError, setActionError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const busy = useRef(false);
+  const form = useRef<ExpenseFormHandle>(null);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const exitCancel = useRef<HTMLButtonElement>(null);
   const loadSequence = useRef(0);
   const confirmButton = useRef<HTMLButtonElement>(null);
   const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const path = `/groups/${groupId}`;
+
+  useEffect(() => {
+    const requestExit = () => {
+      if (busyRef.current || pending) return;
+      if (form.current?.isDirty) {
+        setConfirmDelete(null);
+        setConfirmExit(true);
+      } else onExit();
+    };
+    exitGuardRef.current = requestExit;
+    return () => {
+      if (exitGuardRef.current === requestExit) exitGuardRef.current = null;
+    };
+  }, [busyRef, exitGuardRef, onExit, pending]);
+
+  useEffect(() => {
+    if (confirmExit) exitCancel.current?.focus();
+  }, [confirmExit]);
 
   async function fetchSnapshot(signal?: AbortSignal): Promise<Snapshot> {
     const [group, expenses, balances] = await Promise.all([
@@ -312,6 +485,7 @@ function GroupWorkspace({
   }
 
   async function send(intent: PendingExpense): Promise<boolean> {
+    onWorkingChange(true);
     setSaving(true);
     setNotice("");
     setActionError("");
@@ -328,7 +502,7 @@ function GroupWorkspace({
           body: JSON.stringify(intent.body),
         },
       );
-      updatePending(null);
+      if (!updatePending(null)) return false;
       setFormVersion((version) => version + 1);
       setNotice(
         expense.deleted
@@ -348,13 +522,14 @@ function GroupWorkspace({
       return false;
     } finally {
       setSaving(false);
-      busy.current = false;
+      busyRef.current = false;
+      onWorkingChange(false);
     }
   }
 
   async function submit(body: ExpenseBody) {
-    if (busy.current || pending) return false;
-    busy.current = true;
+    if (busyRef.current || pending) return false;
+    busyRef.current = true;
     const intent = { key: crypto.randomUUID(), user, group: groupId, body };
     try {
       updatePending(intent);
@@ -362,7 +537,7 @@ function GroupWorkspace({
       setActionError(
         "เบราว์เซอร์เก็บรายการรอส่งไม่ได้ จึงยังไม่ได้ส่งบิล กรุณาตรวจการตั้งค่าการเก็บข้อมูลแล้วลองอีกครั้ง",
       );
-      busy.current = false;
+      busyRef.current = false;
       return false;
     }
     return send(intent);
@@ -370,6 +545,36 @@ function GroupWorkspace({
 
   return (
     <>
+      {confirmExit && (
+        <section
+          className="profile-exit-confirm"
+          aria-labelledby="exit-heading"
+        >
+          <h2 id="exit-heading">มีร่างบิลที่ยังไม่ได้บันทึก</h2>
+          <p>ถ้าเปลี่ยนผู้ใช้ ข้อมูลที่กรอกไว้ในบิลนี้จะถูกล้าง</p>
+          <div className="exit-actions">
+            <button
+              className="button secondary"
+              ref={exitCancel}
+              onClick={() => {
+                setConfirmExit(false);
+                document.getElementById("change-user")?.focus();
+              }}
+            >
+              กลับไปแก้บิล
+            </button>
+            <button
+              className="button destructive"
+              disabled={saving || deleting !== null || !!pending}
+              onClick={() => {
+                if (!busyRef.current && !pending) onExit();
+              }}
+            >
+              ทิ้งร่างและเปลี่ยนผู้ใช้
+            </button>
+          </div>
+        </section>
+      )}
       <div className="feedback" aria-live="polite" aria-atomic="true">
         {notice && <div className="notice success">{notice}</div>}
       </div>
@@ -385,20 +590,20 @@ function GroupWorkspace({
               {saving ? "กำลังยืนยันรายการ…" : "มีรายการที่ยังรอยืนยัน"}
             </h2>
             <p>
-              &quot;{pending.body.description}&quot; · {formatMoney(pending.body.amount)}{" "}
-              บาท · {pending.user}
+              &quot;{pending.body.description}&quot; ·{" "}
+              {formatMoney(pending.body.amount)} บาท · {pending.user}
             </p>
             <p>
               ถ้าการเชื่อมต่อขัดข้อง ให้ส่งรายการเดิมอีกครั้งก่อนเริ่มบิลใหม่
-              ระบบจะตรวจรายการซ้ำให้
+              หรือเปลี่ยนผู้ใช้ ระบบจะตรวจรายการซ้ำให้
             </p>
           </div>
           <button
             className="button primary"
             disabled={saving}
             onClick={() => {
-              if (busy.current) return;
-              busy.current = true;
+              if (busyRef.current) return;
+              busyRef.current = true;
               void send(pending);
             }}
           >
@@ -428,11 +633,16 @@ function GroupWorkspace({
         <>
           <div className="workspace-grid" aria-busy={refreshing}>
             <ExpenseForm
+              ref={form}
               key={formVersion}
               group={snapshot.group}
               user={user}
               disabled={
-                !!pending || saving || deleting !== null || storageError
+                !!pending ||
+                saving ||
+                deleting !== null ||
+                storageError ||
+                confirmExit
               }
               saving={saving}
               onSubmit={submit}
@@ -598,7 +808,9 @@ function GroupWorkspace({
                         <button
                           className="delete-button"
                           aria-label={`ลบ ${expense.description}`}
-                          disabled={!!pending || deleting !== null}
+                          disabled={
+                            !!pending || deleting !== null || confirmExit
+                          }
                           onClick={(event) => {
                             deleteTrigger.current = event.currentTarget;
                             setConfirmDelete(expense.id);
@@ -617,7 +829,8 @@ function GroupWorkspace({
                         aria-label={`ยืนยันลบ ${expense.description}`}
                       >
                         <p>
-                          ลบ &quot;{expense.description}&quot; ออกจากรายการและยอดสุทธิ?
+                          ลบ &quot;{expense.description}&quot;
+                          ออกจากรายการและยอดสุทธิ?
                         </p>
                         <div>
                           <button
@@ -635,8 +848,9 @@ function GroupWorkspace({
                             className="button destructive compact"
                             disabled={deleting !== null}
                             onClick={async () => {
-                              if (busy.current) return;
-                              busy.current = true;
+                              if (busyRef.current) return;
+                              busyRef.current = true;
+                              onWorkingChange(true);
                               setDeleting(expense.id);
                               setActionError("");
                               setNotice("");
@@ -655,7 +869,8 @@ function GroupWorkspace({
                               } catch (error) {
                                 setActionError(errorMessage(error));
                               } finally {
-                                busy.current = false;
+                                busyRef.current = false;
+                                onWorkingChange(false);
                                 setDeleting(null);
                               }
                             }}

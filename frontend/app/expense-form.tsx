@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useImperativeHandle, useState, type Ref } from "react";
 import type { ExpenseBody, GroupDetail } from "../lib/api";
 import { formatMoney, parseAmount, splitEqual, toDecimal } from "../lib/money";
 
+export type ExpenseFormHandle = { isDirty: boolean };
+
 export default function ExpenseForm({
+  ref,
   group,
   user,
   disabled,
   saving,
   onSubmit,
 }: {
+  ref: Ref<ExpenseFormHandle>;
   group: GroupDetail;
   user: string;
   disabled: boolean;
@@ -25,6 +29,15 @@ export default function ExpenseForm({
   const [mode, setMode] = useState<"equal" | "exact">("equal");
   const [selected, setSelected] = useState(group.members);
   const [exact, setExact] = useState<Record<string, string>>({});
+  useImperativeHandle(ref, () => ({
+    isDirty:
+      description !== "" ||
+      amount !== "" ||
+      payer !== (group.members.includes(user) ? user : group.members[0]) ||
+      mode !== "equal" ||
+      group.members.some((member) => !selected.includes(member)) ||
+      Object.values(exact).some((value) => value !== ""),
+  }));
   const total = parseAmount(amount);
   const validTotal = total !== null && total > 0n;
   const members = group.members.filter((member) => selected.includes(member));
@@ -93,11 +106,7 @@ export default function ExpenseForm({
                     ),
                   },
           };
-          if (await onSubmit(body)) {
-            setDescription("");
-            setAmount("");
-            setExact({});
-          }
+          await onSubmit(body);
         }}
       >
         <fieldset disabled={disabled} className="form-fields">
@@ -244,9 +253,7 @@ export default function ExpenseForm({
             })}
           </div>
           {mode === "equal" ? (
-            <p className="field-hint">
-              แจกเศษสตางค์ตามลำดับรายชื่อจากบนลงล่าง
-            </p>
+            <p className="field-hint">แจกเศษสตางค์ตามลำดับรายชื่อจากบนลงล่าง</p>
           ) : (
             <>
               <p
