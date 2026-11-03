@@ -63,31 +63,76 @@ AI_NOTES.md      การใช้ AI, ข้อผิดพลาดที่�
 - PostgreSQL 16 ที่รันอยู่ พร้อมบัญชีที่สร้าง role และ database ได้
 - Node.js 24 LTS หรือเวอร์ชันที่โปรเจกต์รองรับในช่วง 24 ถึง 26, npm และ Git
 
+## เริ่มจาก clone มาเทสต์ในเครื่อง
+
+คนที่ clone ใช้ PostgreSQL และรหัสที่ตั้งในเครื่องของตัวเองครับ ข้อมูลตัวอย่างสร้างจาก seed ได้ จึงไม่ต้องใช้รหัสหรือไฟล์ `.env` ของผู้เขียน โดย `localhost` ในตัวอย่างหมายถึงเครื่องของคนที่รัน
+
+ทำตามขั้นตอน 1 ถึง 4 ก่อน แล้วไปที่ [ติดตั้งและรัน backend](#รัน-backend), [รัน frontend](#รัน-frontend) และ [รัน tests](#รัน-tests-และ-checks) ถ้าต้องการตรวจ backend tests อย่างเดียว ติดตั้ง dependencies แล้วไปส่วน tests ได้เลย ไม่ต้องเปิด Uvicorn หรือ frontend
+
+### 1. Clone branch และเข้าโฟลเดอร์โปรเจกต์
+
 รอบนี้ตัวเต็มอยู่บน `dev/frontend` จึง clone branch นี้ได้ก่อนที่ผมจะรวม PR เข้า `main`
 
 ```sh
 git clone --branch dev/frontend https://github.com/WajanaPiromnok/split-bill.git
 cd split-bill
-cp .env.example .env
-chmod 600 .env
 ```
 
-Repository ยังเป็น private จึงต้องมีสิทธิ์อ่านก่อน clone ค่าใน `.env.example` เป็น placeholder ให้ตั้งรหัสของเครื่องตัวเองใน `.env` ซึ่งอยู่ใน `.gitignore`
+Repository ยังเป็น private จึงต้องมีสิทธิ์อ่านก่อน clone คำสั่งต่อจากนี้เริ่มที่ root ของ repository หรือโฟลเดอร์ `split-bill` ที่มี `README.md`, `backend/` และ `frontend/`
 
-## เตรียม PostgreSQL
+### 2. สร้าง role ตั้งรหัส และสร้างฐานข้อมูล
 
-เปิด `psql` ด้วยบัญชี admin ของ PostgreSQL ที่ใช้อยู่ แล้วสร้าง role และฐานข้อมูลสองตัว ฐานแรกเก็บข้อมูลแอป ส่วนอีกฐานใช้ทดสอบ
+เปิด PostgreSQL 16 ให้ทำงานก่อน แล้วเข้า `psql` ด้วยบัญชี admin ของ PostgreSQL ในเครื่อง ตัวอย่างนี้ใช้ชื่อ `postgres`
+
+```sh
+psql -h localhost -p 5432 -U postgres -d postgres -W
+```
+
+ถ้า admin ของเครื่องใช้ชื่ออื่น ให้เปลี่ยน `-U postgres` ให้ตรง เช่น บางเครื่องที่ติดตั้งผ่าน Homebrew ใช้ชื่อบัญชีของเจ้าของเครื่อง รหัสที่คำสั่งตัวอย่างถามเป็นรหัสของ admin หากเครื่องใช้ local socket หรือ peer โดยไม่ได้ตั้งรหัส admin ให้เข้าด้วยวิธีของการติดตั้งนั้น เช่น `psql -d postgres` บนเครื่องที่กำหนดให้บัญชีปัจจุบันเป็น admin แล้ว
+
+เมื่อเห็น prompt ของ `psql` แล้ว รันชุดนี้ภายใน `psql`
 
 ```psql
+SHOW server_version;
 CREATE ROLE splitbill LOGIN;
 \password splitbill
 CREATE DATABASE splitbill OWNER splitbill;
 CREATE DATABASE splitbill_test OWNER splitbill;
+\q
 ```
 
-`\password` จะถามรหัสโดยไม่แสดงค่าที่พิมพ์ ดูวิธีใช้ใน [คู่มือ psql](https://www.postgresql.org/docs/16/app-psql.html#APP-PSQL-META-COMMAND-PASSWORD) ถ้ามี role และ database แล้วให้ใช้ของเดิมได้ และเปลี่ยนรหัสผ่าน `\password splitbill` เมื่อจำเป็น
+`SHOW server_version` ควรแสดง `16.x` ส่วน `\password splitbill` จะให้ตั้งรหัสใหม่ของ role `splitbill` และยืนยันอีกครั้งโดยไม่แสดงค่าที่พิมพ์ จำรหัสนี้ไว้ใส่ใน `.env` ดูวิธีใช้ใน [คู่มือ psql](https://www.postgresql.org/docs/16/app-psql.html#APP-PSQL-META-COMMAND-PASSWORD)
 
-แก้ `.env` ให้ username, password, host, port และชื่อฐานตรงกับเครื่อง โดยใช้รหัสเดียวกับที่เพิ่งตั้ง ถ้ารหัสมีอักขระพิเศษ เช่น `@`, `:` หรือ `/` ต้อง percent-encode ส่วนรหัสใน URL ก่อน
+ฐาน `splitbill` ใช้กับแอป ส่วน `splitbill_test` ใช้กับ tests ทั้งสองฐานมี `splitbill` เป็นเจ้าของ เมื่อ `\q` แล้วจะกลับมาที่ terminal ปกติ จึงค่อยรันคำสั่ง shell ในขั้นถัดไป
+
+ถ้ามี role หรือ database ชื่อเหล่านี้อยู่แล้ว ให้ใช้ของเดิมที่คุณมีสิทธิ์ หรือเลือกชื่อใหม่แล้วแก้ทั้ง `.env` และชื่อในคำสั่ง `psql` ที่เหลือให้ตรง โดยแยกฐานแอปกับฐานทดสอบคนละชื่อเหมือนเดิม ไม่ต้องลบฐานเดิมเพื่อทำตามตัวอย่าง
+
+### 3. สร้างและแก้ `.env` ของเครื่องตัวเอง
+
+ที่ root ของ repository รัน
+
+```sh
+cp .env.example .env
+chmod 600 .env
+```
+
+เปิด `.env` แล้วแก้สามบรรทัดนี้ โดยแทน `replace-with-local-password` ทั้งสองจุดด้วยรหัสของ role `splitbill` ที่เพิ่งตั้ง
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://splitbill:replace-with-local-password@localhost:5432/splitbill
+TEST_DATABASE_URL=postgresql+psycopg://splitbill:replace-with-local-password@localhost:5432/splitbill_test
+CORS_ORIGINS=http://localhost:3000
+```
+
+รหัสทั้งสอง URL เป็นรหัสเดียวกันเพราะใช้ role เดียวกัน ส่วนชื่อฐานท้าย URL ต้องต่างกันตามตัวอย่าง ค่า `replace-with-local-password` เป็นข้อความให้แทนที่ ไม่ใช่รหัสที่ใช้เชื่อมต่อได้จริง
+
+ถ้ารหัสมีอักขระพิเศษ เช่น `@`, `:`, `/`, `#` หรือ `%` ต้อง percent-encode เฉพาะส่วนรหัสก่อนใส่ URL ใช้คำสั่งนี้เพื่อแปลงได้ โดยพิมพ์รหัสในช่องถามแล้วนำผลไปแทนส่วนรหัสของทั้งสอง URL
+
+```sh
+python3.12 -c 'from getpass import getpass; from urllib.parse import quote; print(quote(getpass("PostgreSQL password: "), safe=""))'
+```
+
+ตอน `psql` ถาม Password ให้ใช้รหัสเดิมที่ตั้งไว้ ส่วนค่าที่ encode ใช้เฉพาะใน URL ของ `.env` เท่านั้น ไฟล์ `.env` อยู่ใน `.gitignore` และใช้กับเครื่องตัวเอง จึงไม่ต้อง commit ไฟล์นี้
 
 | ตัวแปร | ใช้กับอะไร |
 | --- | --- |
@@ -96,6 +141,19 @@ CREATE DATABASE splitbill_test OWNER splitbill;
 | `CORS_ORIGINS` | origin ของ frontend ที่อนุญาต ค่าเริ่มต้นคือ `http://localhost:3000` |
 
 Backend อ่าน `.env` ที่ root ของ repository ถ้ามี environment variable ชื่อเดียวกันใน terminal ค่านั้นจะมีผลก่อน `.env` หลังเปลี่ยนค่าต้องเริ่ม backend ใหม่
+
+### 4. เช็กว่าใช้รหัสใหม่เข้าทั้งสองฐานได้
+
+รันจาก terminal ปกติ คำสั่ง `-c` จะอ่านข้อมูลแล้วออกให้เลย
+
+```sh
+psql -h localhost -p 5432 -U splitbill -d splitbill -W -c 'SELECT current_user, current_database();'
+psql -h localhost -p 5432 -U splitbill -d splitbill_test -W -c 'SELECT current_user, current_database();'
+```
+
+แต่ละคำสั่งจะถามรหัสของ `splitbill` ให้กรอกเฉพาะรหัสผ่าน ไม่ต้องวาง connection URL ทั้งบรรทัด ผลควรได้ผู้ใช้ `splitbill` และชื่อฐาน `splitbill` / `splitbill_test` ตามลำดับ
+
+ถ้าได้ `password authentication failed` ให้ตรวจรหัสและชื่อ role ก่อน ส่วน `database does not exist` ให้ตรวจชื่อฐานในขั้นที่ 2 และ URL ใน `.env` ถ้าใส่รหัสอะไรก็เข้าได้ ให้ตรวจ authentication rules ใน `pg_hba.conf` และใช้ `scram-sha-256` สำหรับ TCP connection ที่ใช้ทดสอบ
 
 ## รัน backend
 
@@ -218,7 +276,7 @@ Error ของ API ใช้ JSON รูปแบบเดียวกัน �
 
 ## รัน tests และ checks
 
-หลังติดตั้งแล้ว โหลดค่าจาก `.env` ของเครื่องตัวเองเข้า terminal จาก root ก่อน ใช้กับไฟล์ที่เราเตรียมและเชื่อถือเท่านั้น เพราะคำสั่งนี้อ่านไฟล์เป็น shell script
+เปิด terminal ที่ root ของ repository หลังติดตั้ง backend dependencies แล้ว ถ้าอยู่ใน `backend/` หรือ `frontend/` ให้ `cd ..` กลับ root ก่อน จากนั้นโหลดค่าจาก `.env` ของเครื่องตัวเอง ใช้กับไฟล์ที่เราเตรียมและเชื่อถือเท่านั้น เพราะคำสั่งนี้อ่านไฟล์เป็น shell script
 
 ```sh
 set -a
@@ -229,7 +287,7 @@ bash scripts/test-backend.sh
 
 เมื่อเตรียม environment แล้ว การรัน backend tests ทั้งชุดใช้คำสั่งเดียวคือ `bash scripts/test-backend.sh`
 
-Tests สร้าง schema ชั่วคราวที่ชื่อสุ่มในฐานทดสอบ และลบ schema นั้นเมื่อจบ role จึงต้องมีสิทธิ์สร้างและลบ schema ของตัวเอง ห้ามชี้ URL นี้ไปฐานข้อมูลแอป
+Tests สร้าง schema ชั่วคราวที่ชื่อสุ่มใน `splitbill_test` แล้วรัน migrations และ seed สำหรับแต่ละรอบให้เอง จึงไม่ต้องสร้างตารางหรือ seed ฐานทดสอบด้วยมือ และไม่ต้องเปิด API server ไว้ เมื่อจบจะลบ schema นั้น role จึงต้องมีสิทธิ์สร้างและลบ schema ของตัวเอง การสร้าง database โดยให้ `splitbill` เป็นเจ้าของในขั้นที่ 2 รองรับส่วนนี้ ห้ามชี้ `TEST_DATABASE_URL` ไปฐานข้อมูลแอป
 
 ตรวจ Ruff, formatting และ OpenAPI ที่ commit ไว้จาก root ได้ด้วย
 
@@ -252,8 +310,9 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm start
 ```
+
+ถ้าจะลอง production server ให้หยุด `npm run dev` ที่ใช้พอร์ต `3000` อยู่ก่อน แล้วรัน `npm start` จากโฟลเดอร์ `frontend/` หลัง build ผ่าน
 
 ต้องตั้ง `NEXT_PUBLIC_API_URL` ให้ถูกก่อน build เพราะ Next ฝังค่านี้ลงในไฟล์ frontend ตั้งแต่ตอน build ฟอนต์ Noto Sans Thai อยู่ใน repository พร้อม OFL license จึงไม่ต้องเรียก Google Fonts ตอน build หรือเปิดหน้าเว็บ
 
