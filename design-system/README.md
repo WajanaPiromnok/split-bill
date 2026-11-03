@@ -4,6 +4,8 @@ The owner approved the direction in [DESIGN.md](../DESIGN.md): a friendly, reada
 
 The approved profile-entry update replaces the header's user dropdown with four vertical choices before entering, then the current name and “เปลี่ยนผู้ใช้” in the workspace. It retains the same palette, self-hosted font, and division-mark SVG.
 
+The approved follow-up adds “กลุ่มของฉัน” when that profile has several accessible groups, with choices from the authorized API response. A sole group opens automatically. Workspace navigation back to this home retains the draft, pending-expense, and in-flight-write protections. This uses the existing visual system and does not introduce account authentication.
+
 ## Sources
 
 - [SplitBill Thai Design System in Stitch](https://stitch.withgoogle.com/projects/16468469070349900352) was created before frontend implementation on 2026-11-03.
@@ -31,10 +33,12 @@ Screenshots added to this directory from the implemented frontend are examples o
 | --- | --- |
 | [frontend-desktop.png](frontend-desktop.png) | Chromium, 1440px viewport, full page |
 | [frontend-mobile.png](frontend-mobile.png) | Chromium, 390px viewport, full page |
-| [frontend-entry-desktop.png](frontend-entry-desktop.png) | Chromium, 1440px viewport, profile entry |
-| [frontend-entry-mobile.png](frontend-entry-mobile.png) | Chromium, 390px viewport, profile entry |
+| [frontend-entry-desktop.png](frontend-entry-desktop.png) | Chromium, 1440 × 1000px viewport, profile entry |
+| [frontend-entry-mobile.png](frontend-entry-mobile.png) | Chromium, 390 × 844px viewport, profile entry |
+| [frontend-groups-desktop.png](frontend-groups-desktop.png) | Chromium, 1440 × 1000px viewport, group home |
+| [frontend-groups-mobile.png](frontend-groups-mobile.png) | Chromium, 390 × 844px viewport, group home |
 
-These four images were captured on 2026-11-03 by [the integration runner](../scripts/test-frontend-integration.py) during the passing profile-entry run, using the production Next build, real FastAPI endpoints, and a disposable PostgreSQL 16.13 test schema. Fonts and finite transitions finished before capture. The entry images show the initial chooser before profile selection or API reads. The workspace images replace the earlier captures and show example dinner1000.00, coffee240.00, and taxi180.00 expenses created through the real API in that isolated schema. The form previews a separate, unsaved100.00 bill; that draft is not included in the displayed balances. The schema and owned test processes were removed after the run; no application transactions appear in these images.
+These six images were captured on 2026-11-03 by [the integration runner](../scripts/test-frontend-integration.py) during the passing 16-group group-home run, using the production Next build, real FastAPI endpoints, and a disposable PostgreSQL 16.13 test schema. They replace the earlier four profile-entry/workspace captures and add desktop/mobile group home. Fonts and finite transitions finished before capture. The entry images show the initial chooser before profile selection or API reads. Group home shows bob's two API-authorized groups, before a workspace is selected. The workspace images show example dinner1000.00, coffee240.00, and taxi180.00 expenses created through the real API in that isolated schema. The form previews a separate, unsaved100.00 bill; that draft is not included in the displayed balances. The schema and owned test processes were removed after the run; no application transactions appear in these images.
 
 The same runner checks page overflow at 375/390/768/1024/1440px and reduced motion. This is Chromium evidence, not a claim of testing every browser or every device. These files are application screenshots, not Stitch exports.
 
@@ -50,6 +54,8 @@ The header uses the same SVG as the favicon rather than a font glyph, keeping th
 
 The owner compared two Imagegen direction probes and selected the vertical direct-entry list. Those generated images are design references, not screenshots of the application. The implementation uses native buttons and the existing SVG logo; generated texture and text-rendering artifacts are not part of the design.
 
-The entry images in the table above are actual application captures from the passing 13-group browser run. The header-only logo crops retain their earlier capture conditions and document the shared SVG mark rather than the new entry interaction.
+The entry and group-home images in the table above are actual application captures from the passing 16-group browser run. The earlier 13-group profile-entry checkpoint remains historical verification in AI_NOTES.md. The header-only logo crops retain their earlier capture conditions and document the shared SVG mark rather than the new entry interaction.
 
 ![Profile entry on desktop](frontend-entry-desktop.png)
+
+![Group home on desktop](frontend-groups-desktop.png)

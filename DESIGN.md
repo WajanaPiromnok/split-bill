@@ -8,7 +8,7 @@ description: Owner-approved design direction based on the reviewed SplitBill Sti
 
 Status: the owner approved this direction on 2026-11-03 and authorized frontend implementation and delivery to dev/frontend. Implementation and verification evidence are recorded separately.
 
-The owner subsequently approved an entry screen with four vertical profile buttons: choose alice, bob, carol, or dan to enter directly. The workspace header shows the current name and “เปลี่ยนผู้ใช้” instead of a user dropdown. The existing palette, typography, SVG logo, and single-page route remain the design authority.
+The owner subsequently approved four vertical profile choices and then a group home: choose alice, bob, carol, or dan once, automatically open the only accessible group, or choose from “กลุ่มของฉัน” when several groups are returned by the API. The workspace header shows the current name and “เปลี่ยนผู้ใช้” instead of a user dropdown. The existing palette, typography, SVG logo, and single-page route remain the design authority.
 
 Stitch created [SplitBill Thai Design System](https://stitch.withgoogle.com/projects/16468469070349900352) on 2026-11-03 before frontend implementation. Its first specimen established a light surface, green primary actions, Thai/Latin sans typography, tabular money, 44px controls, split inputs, expense rows, and balance states. The owner confirmed a friendly, readable, quick-to-use personality.
 
@@ -76,7 +76,7 @@ typography:
 
 ## Layout
 
-One responsive page with an entry state and a working state. The entry state uses a compact centered heading, “คุณคือใคร?”, followed by four vertical profile buttons with an initial, username, and chevron. Selecting a name opens the workspace directly. Place the wordmark, current profile with its change action, and selected group at the top of the workspace. Make expense entry and its live allocation preview the primary working area; place a compact member-balance ledger alongside on desktop and below the form on mobile. Show newest-first expenses in readable rows with optional share detail. Use sections and separators instead of nested cards.
+One responsive page with profile entry, group home, and workspace states. Profile entry uses a compact centered heading, “คุณคือใคร?”, followed by four vertical buttons with an initial, username, and chevron. For several accessible groups, show “กลุ่มของฉัน” and native group buttons labelled with API-provided names; do not infer member counts, balances, or metadata from the group list. Open a sole accessible group directly. In the workspace, place the wordmark, current profile/change action, “กลับไปกลุ่มของฉัน”, and selected group above the working area. Expense entry and its live allocation preview stay primary, with a compact member-balance ledger alongside on desktop and below on mobile. Show newest-first expenses in readable rows with optional share detail. Use sections and separators instead of nested cards.
 
 ```yaml
 spacing:
@@ -89,7 +89,7 @@ spacing:
   content-max: 1200px
 ```
 
-At 375px, profile choices remain full-width rows, the header's current profile and change action stay readable, the group selector and form fields stack, the submit button spans the available width, and expense rows reflow. Check 768px, 1024px, 1440px and increased zoom. Long descriptions and large balances must wrap without horizontal page scrolling.
+At 375px, profile and group choices remain full-width rows, the header's current profile and change action stay readable, the group selector and form fields stack, the submit button spans the available width, and expense rows reflow. Check 768px, 1024px, 1440px and increased zoom. Long descriptions and large balances must wrap without horizontal page scrolling.
 
 ## Elevation & Depth
 
@@ -107,7 +107,7 @@ Controls are at least 44px high with clear keyboard focus. A selected member rem
 
 ## Components
 
-- Context: four native profile buttons before entry; current profile and “เปลี่ยนผู้ใช้” in the workspace; a labelled group selector with available groups and memberships from the API.
+- Context: four native profile buttons before entry; current profile and “เปลี่ยนผู้ใช้”; API-authorized group choices on “กลุ่มของฉัน”; a workspace back action and labelled native group selector.
 - Form: description, decimal-string THB input, payer, equal/exact radio group, participants, allocation preview, and explicit exact-split remainder.
 - Action states: default, hover, focus, pressed, disabled, saving, success, and recoverable or uncertain failure. Explain why saving is disabled.
 - Data: member balances with signs and words; newest-first expense rows, payer, time, amount, shares, and payer-only deletion.
@@ -118,10 +118,10 @@ The API contract defines behavior. Keep technical headers and retry keys out of 
 ## Profile entry and exit
 
 - No profile is selected automatically on first entry. Keep the heading, brief instruction, and four choices easy to scan; no extra Continue button is needed.
-- Remember the selected profile across reload in the same tab. A restored unresolved expense takes precedence and returns to its original user and group.
+- Remember the selected profile across reload in the same tab. Reload opens the group home for multiple accessible groups or the sole group's workspace. A restored unresolved expense bypasses group home and returns to its original user and group.
 - “เปลี่ยนผู้ใช้” returns to the chooser and removes the old profile's visible workspace data. Stored expenses remain in PostgreSQL.
-- An edited draft requires an inline confirmation before it is discarded. Cancel keeps the values and returns focus to the change action; returning to the chooser focuses its heading.
-- Block profile exit during create/delete requests and while a creation result remains uncertain. Keep the original pending key, body, user, and group available for retry.
+- An edited draft requires an inline confirmation before changing profiles, switching groups, returning to group home, or using brand navigation. Cancel keeps the values and restores focus to the initiating action; the destination heading receives focus after confirmed navigation.
+- Block those context changes during create/delete requests and while a creation result remains uncertain. Keep the original pending key, body, user, and group available for retry.
 - Use the same existing `/` page. Profile selection does not add registration, a password flow, or server-side logout.
 
 ## Do's and Don'ts

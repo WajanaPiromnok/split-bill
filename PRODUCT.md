@@ -10,7 +10,7 @@ web
 
 ## Users
 
-Friends sharing expenses in a group. The assessment uses the seeded users alice, bob, carol, and dan. Users choose a name on the entry screen before viewing that person's groups and expenses, then use “เปลี่ยนผู้ใช้” to return to the chooser. This selects an assessment profile through `X-User`; it is not account authentication.
+Friends sharing expenses in a group. The assessment uses the seeded users alice, bob, carol, and dan. Users choose a name once, then enter their only accessible group automatically or choose from “กลุ่มของฉัน” when several groups are available. The API determines those choices. “เปลี่ยนผู้ใช้” returns to the profile chooser. This selects an assessment profile through `X-User`; it is not account authentication.
 
 ## Product Purpose
 
@@ -33,7 +33,7 @@ No specific reference product was supplied. Keep the interface focused on the ex
 - Show the allocation before recording it.
 - Explain whether a member owes money or is owed money in words.
 - Keep the selected user and group clear throughout every action.
-- Confirm before discarding an edited draft when changing users, and retain unresolved submissions until their outcome is known.
+- Confirm before discarding an edited draft when changing users, groups, or returning to the group home, and retain unresolved submissions until their outcome is known.
 - Preserve an uncertain submission so retrying does not create another bill.
 - Use the API as the authority for access, saved expenses, and balances.
 

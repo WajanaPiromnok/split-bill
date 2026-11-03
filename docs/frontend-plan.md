@@ -2,7 +2,7 @@
 
 Status: the owner approved the design direction on 2026-11-03 and authorized full frontend implementation, real backend integration, reference images in design-system, and push to dev/frontend. This plan records intended behavior; actual checks are reported separately.
 
-The owner later approved a vertical profile-entry screen using the same four seeded users, direct entry after clicking a name, and a header action to return to the chooser. This change stays on the existing `/` page and is delivered to dev/frontend after its own checks.
+The owner later approved four vertical profile choices, followed by “กลุ่มของฉัน” for several accessible groups or direct entry for a sole group. The header retains the current name and change-user action. This change stays on the existing `/` page and is delivered to dev/frontend after its own checks.
 
 ## Design authority and evidence
 
@@ -20,9 +20,10 @@ The primary action is recording an expense with a preview the user can verify be
 | Area | Desktop | Mobile |
 | --- | --- | --- |
 | Entry | Compact centered heading and four vertical profile buttons | Same full-width choices with readable spacing |
+| Group home | “กลุ่มของฉัน” with API-authorized group choices | Same choices as full-width rows |
 | Context | Compact wordmark, current profile/change action, group selector | Profile action stays readable; group selector stacks |
 | Group | Name and member names, without invented trip metadata | Compact heading above the working area |
-| Entry | Main form with allocation rows immediately below split controls | Form first, normal document flow and full-width submit |
+| Expense entry | Main form with allocation rows immediately below split controls | Form first, normal document flow and full-width submit |
 | Balances | Adjacent compact member ledger | Below the form, explicit owe/owed labels retained |
 | Expenses | Newest-first list with expandable share detail | Reflow each row; amount and payer stay readable |
 
@@ -30,11 +31,11 @@ Use Thai labels and messages with unchanged seeded usernames and group names. Mo
 
 ## Profile entry and exit
 
-1. Show “คุณคือใคร?” before any profile is selected. Four native buttons select alice, bob, carol, or dan and enter directly; there is no automatic default or additional Continue action.
+1. Show “คุณคือใคร?” before any profile is selected. Four native buttons select alice, bob, carol, or dan; there is no automatic default or additional Continue action. Load that profile's groups, open a sole group automatically, or show “กลุ่มของฉัน” for several groups. Use only the authorized `/groups` response and its supplied names.
 2. After entry, show the current name and “เปลี่ยนผู้ใช้” in the header. It returns to the chooser. This changes the `X-User` assessment identity and does not introduce authentication, registration, or a server logout endpoint.
-3. Keep the profile in tab-local session storage for reloads. If an unresolved expense is restored, its captured user/group takes precedence over the ordinary saved profile.
-4. Before profile exit discards an edited draft, offer inline cancel/confirm actions. Cancel preserves the values. Confirm clears the old visible context, without deleting database records, and focuses the chooser heading.
-5. Block profile exit during create/delete requests and while a creation result is uncertain. Preserve the original pending key/body/user/group and same-intent retry. Keep late responses from repopulating a departed profile.
+3. Keep the profile in tab-local session storage for reloads. Normal reload for a profile with several groups opens group home. If an unresolved expense is restored, its captured user/group takes precedence and bypasses group home.
+4. Add “กลับไปกลุ่มของฉัน” in the workspace. Apply the existing inline draft confirmation to this action, group dropdown changes, brand navigation, and profile exit. Cancel preserves the values and focus returns to the initiating control. Confirm clears the previous visible context without deleting database records and focuses the destination heading.
+5. Block these context changes during create/delete requests and while a creation result is uncertain. Preserve the original pending key/body/user/group and same-intent retry. Keep late responses from repopulating a departed context.
 6. Provide loading and recoverable API error states after selection. Preserve the established keyboard, focus, touch-target, contrast, and reduced-motion behavior.
 
 ## Expense entry and exact money
@@ -49,7 +50,7 @@ Use Thai labels and messages with unchanged seeded usernames and group names. Mo
 ## API and state ownership
 
 - Fetch `/groups` with `X-User`; use that response as the available group list. Fetch the selected group's detail, expenses, and balances. Balances are a direct member-to-money map, not an array or nested object.
-- On confirmed profile exit or group changes, immediately remove the previous context's visible data and reset its editable form. Abort or ignore stale responses. A late response must never populate a different selected context.
+- On confirmed profile exit, group changes, or return to group home, immediately remove the previous context's visible data and reset its editable form. Abort or ignore stale responses. A late response must never populate a different selected context.
 - Keep the page shell server-rendered and the interactive workspace a client component. Group-selection requests need their own loading/error state; a route-level loading file cannot represent those subsequent requests.
 - After a successful create/delete, refetch expenses and balances from the API. Show a refresh failure separately from mutation failure, so a successfully created expense is not presented as an unsuccessful submission.
 - Preserve form values after recoverable validation errors. Map API error codes to plain-language Thai messages with field guidance where possible. Keep unauthorized, unavailable, and empty states distinct.
@@ -94,5 +95,7 @@ All controls have labels, visible focus, logical DOM/tab order, keyboard operati
 Required checks include exact `0.10 + 0.20`, the two equal-split examples, exact mismatch/zero shares, large aggregate formatting, user/group isolation and rapid switching, lost-response same-key retry, payer-only deletion, and post-delete balances. Inspect desktop/mobile screenshots and keyboard paths. Update README setup/limitations and AI_NOTES with actual work and corrections.
 
 For the profile-entry change, adapt the browser user-switch helper instead of retaining the removed dropdown. Add checks for no profile/API load on fresh entry, keyboard selection, saved profile reload, exit, dirty-draft cancel/confirm, pending-owner precedence, and create/delete exit guards. Capture entry and workspace states at desktop/mobile sizes after the real integration run; record the results separately against the delivered SHA.
+
+For the approved group-home increment, verify sole-group entry, multiple-group choices from the authorized API response, normal reload to group home, original pending-group restoration, keyboard/focus behavior, and draft/pending/busy guards for every context-changing control. The local production-build/Chromium/FastAPI/PostgreSQL 16.13 run passed all 16 acceptance groups, retaining the earlier 13 and adding the group-home, navigation, and group-2 pending-recovery coverage. Six actual entry/group/workspace captures, including `frontend-groups-desktop.png` and `frontend-groups-mobile.png`, are recorded in [design-system](../design-system/README.md). Remote CI and delivered revision remain separate evidence.
 
 No chart, global state/query/form library, custom select, full authentication, settlement endpoint, or extra route is needed for this milestone.
