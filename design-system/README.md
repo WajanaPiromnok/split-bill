@@ -2,6 +2,8 @@
 
 The owner approved the direction in [DESIGN.md](../DESIGN.md): a friendly, readable Thai interface, white working surfaces, green primary actions, exact monetary previews, and a responsive single-page expense workflow.
 
+The approved profile-entry update replaces the header's user dropdown with four vertical choices before entering, then the current name and “เปลี่ยนผู้ใช้” in the workspace. It retains the same palette, self-hosted font, and division-mark SVG.
+
 ## Sources
 
 - [SplitBill Thai Design System in Stitch](https://stitch.withgoogle.com/projects/16468469070349900352) was created before frontend implementation on 2026-11-03.
@@ -29,8 +31,10 @@ Screenshots added to this directory from the implemented frontend are examples o
 | --- | --- |
 | [frontend-desktop.png](frontend-desktop.png) | Chromium, 1440px viewport, full page |
 | [frontend-mobile.png](frontend-mobile.png) | Chromium, 390px viewport, full page |
+| [frontend-entry-desktop.png](frontend-entry-desktop.png) | Chromium, 1440px viewport, profile entry |
+| [frontend-entry-mobile.png](frontend-entry-mobile.png) | Chromium, 390px viewport, profile entry |
 
-Both images were generated on 2026-11-03 by [the integration runner](../scripts/test-frontend-integration.py) against the production Next build, real FastAPI endpoints, and a disposable PostgreSQL16 test schema. Fonts and finite transitions finished before capture. The example dinner1000.00, coffee240.00, and taxi180.00 were created through the real API in that isolated schema. The form previews a separate, unsaved100.00 bill; that draft is not included in the displayed balances. The schema is removed after the run; no application transactions appear in these images.
+These four images were captured on 2026-11-03 by [the integration runner](../scripts/test-frontend-integration.py) during the passing profile-entry run, using the production Next build, real FastAPI endpoints, and a disposable PostgreSQL 16.13 test schema. Fonts and finite transitions finished before capture. The entry images show the initial chooser before profile selection or API reads. The workspace images replace the earlier captures and show example dinner1000.00, coffee240.00, and taxi180.00 expenses created through the real API in that isolated schema. The form previews a separate, unsaved100.00 bill; that draft is not included in the displayed balances. The schema and owned test processes were removed after the run; no application transactions appear in these images.
 
 The same runner checks page overflow at 375/390/768/1024/1440px and reduced motion. This is Chromium evidence, not a claim of testing every browser or every device. These files are application screenshots, not Stitch exports.
 
@@ -41,3 +45,11 @@ The same runner checks page overflow at 375/390/768/1024/1440px and reduced moti
 The header uses the same SVG as the favicon rather than a font glyph, keeping the division mark centered at both sizes. These crops were captured from the running development app on 2026-11-03 after the image and fonts loaded: [desktop, 1440px viewport](logo-desktop.png) and [mobile, 390px viewport](logo-mobile.png). They show the header only and do not replace the full-stack screenshots above.
 
 ![Aligned desktop header logo](logo-desktop.png)
+
+## Profile-entry references
+
+The owner compared two Imagegen direction probes and selected the vertical direct-entry list. Those generated images are design references, not screenshots of the application. The implementation uses native buttons and the existing SVG logo; generated texture and text-rendering artifacts are not part of the design.
+
+The entry images in the table above are actual application captures from the passing 13-group browser run. The header-only logo crops retain their earlier capture conditions and document the shared SVG mark rather than the new entry interaction.
+
+![Profile entry on desktop](frontend-entry-desktop.png)

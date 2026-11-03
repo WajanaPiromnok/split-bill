@@ -2,6 +2,8 @@
 
 Status: the owner approved the design direction on 2026-11-03 and authorized full frontend implementation, real backend integration, reference images in design-system, and push to dev/frontend. This plan records intended behavior; actual checks are reported separately.
 
+The owner later approved a vertical profile-entry screen using the same four seeded users, direct entry after clicking a name, and a header action to return to the chooser. This change stays on the existing `/` page and is delivered to dev/frontend after its own checks.
+
 ## Design authority and evidence
 
 - Stitch created [SplitBill Thai Design System](https://stitch.withgoogle.com/projects/16468469070349900352) first. Its specimen board is the visual starting point; the root `DESIGN.md` will record the reviewed tokens and components.
@@ -17,13 +19,23 @@ The primary action is recording an expense with a preview the user can verify be
 
 | Area | Desktop | Mobile |
 | --- | --- | --- |
-| Context | Compact wordmark, user selector, group selector | Same controls wrap into labelled full-width rows |
+| Entry | Compact centered heading and four vertical profile buttons | Same full-width choices with readable spacing |
+| Context | Compact wordmark, current profile/change action, group selector | Profile action stays readable; group selector stacks |
 | Group | Name and member names, without invented trip metadata | Compact heading above the working area |
 | Entry | Main form with allocation rows immediately below split controls | Form first, normal document flow and full-width submit |
 | Balances | Adjacent compact member ledger | Below the form, explicit owe/owed labels retained |
 | Expenses | Newest-first list with expandable share detail | Reflow each row; amount and payer stay readable |
 
 Use Thai labels and messages with unchanged seeded usernames and group names. Money displays as `1,000.00` with a clear THB unit. Use text alongside semantic color; a sign or green/red alone does not explain who owes whom.
+
+## Profile entry and exit
+
+1. Show “คุณคือใคร?” before any profile is selected. Four native buttons select alice, bob, carol, or dan and enter directly; there is no automatic default or additional Continue action.
+2. After entry, show the current name and “เปลี่ยนผู้ใช้” in the header. It returns to the chooser. This changes the `X-User` assessment identity and does not introduce authentication, registration, or a server logout endpoint.
+3. Keep the profile in tab-local session storage for reloads. If an unresolved expense is restored, its captured user/group takes precedence over the ordinary saved profile.
+4. Before profile exit discards an edited draft, offer inline cancel/confirm actions. Cancel preserves the values. Confirm clears the old visible context, without deleting database records, and focuses the chooser heading.
+5. Block profile exit during create/delete requests and while a creation result is uncertain. Preserve the original pending key/body/user/group and same-intent retry. Keep late responses from repopulating a departed profile.
+6. Provide loading and recoverable API error states after selection. Preserve the established keyboard, focus, touch-target, contrast, and reduced-motion behavior.
 
 ## Expense entry and exact money
 
@@ -37,7 +49,7 @@ Use Thai labels and messages with unchanged seeded usernames and group names. Mo
 ## API and state ownership
 
 - Fetch `/groups` with `X-User`; use that response as the available group list. Fetch the selected group's detail, expenses, and balances. Balances are a direct member-to-money map, not an array or nested object.
-- On user/group changes, immediately remove the previous context's visible data and reset its editable form. Abort or ignore stale responses. A late response must never populate a different selected context.
+- On confirmed profile exit or group changes, immediately remove the previous context's visible data and reset its editable form. Abort or ignore stale responses. A late response must never populate a different selected context.
 - Keep the page shell server-rendered and the interactive workspace a client component. Group-selection requests need their own loading/error state; a route-level loading file cannot represent those subsequent requests.
 - After a successful create/delete, refetch expenses and balances from the API. Show a refresh failure separately from mutation failure, so a successfully created expense is not presented as an unsuccessful submission.
 - Preserve form values after recoverable validation errors. Map API error codes to plain-language Thai messages with field guidance where possible. Keep unauthorized, unavailable, and empty states distinct.
@@ -55,7 +67,7 @@ Use Thai labels and messages with unchanged seeded usernames and group names. Mo
 
 - Show Delete only when `expense.paid_by` equals the selected user. Use an inline confirmation or native dialog naming the expense; preserve keyboard focus and make Cancel the safe default.
 - Wait for the server's empty `204`; do not parse a JSON body or erase a row before authorization succeeds. On error retain the row and provide retry feedback.
-- Positive balance: “ต้องได้รับคืน”; negative: “ต้องจ่ายคืน”; zero: “ไม่มีค้าง”. Include every member, even when zero. These are balances, not a settlement/payment feature.
+- Positive balance: “ต้องได้รับคืน”; negative: “ต้องจ่ายคืน”; zero: “ยอดสุทธิเป็นศูนย์”. Include every member, even when zero. These are balances, not a settlement/payment feature.
 
 ## Interaction and quality bar
 
@@ -80,5 +92,7 @@ All controls have labels, visible focus, logical DOM/tab order, keyboard operati
 5. For this delivery, push to `origin/dev/frontend` as explicitly requested; do not merge into main. A later accepted milestone can follow the documented PR/merge/sync workflow. Record actual local/remote SHAs and checks; never infer success from configuration alone.
 
 Required checks include exact `0.10 + 0.20`, the two equal-split examples, exact mismatch/zero shares, large aggregate formatting, user/group isolation and rapid switching, lost-response same-key retry, payer-only deletion, and post-delete balances. Inspect desktop/mobile screenshots and keyboard paths. Update README setup/limitations and AI_NOTES with actual work and corrections.
+
+For the profile-entry change, adapt the browser user-switch helper instead of retaining the removed dropdown. Add checks for no profile/API load on fresh entry, keyboard selection, saved profile reload, exit, dirty-draft cancel/confirm, pending-owner precedence, and create/delete exit guards. Capture entry and workspace states at desktop/mobile sizes after the real integration run; record the results separately against the delivered SHA.
 
 No chart, global state/query/form library, custom select, full authentication, settlement endpoint, or extra route is needed for this milestone.
