@@ -1,6 +1,6 @@
 # SplitBill
 
-SplitBill is a shared-expense take-home project. The backend implements group access, exact expense allocation, idempotent creation, payer-only soft deletion, and zero-sum member balances, with a reproducible handoff for frontend development.
+SplitBill is a shared-expense take-home project with a Thai responsive Next.js interface and a FastAPI/PostgreSQL backend. It supports exact expense allocation, safe creation retries, payer-only soft deletion, and zero-sum member balances.
 
 ## Current scope
 
@@ -14,7 +14,7 @@ The backend contains PostgreSQL migrations, repeatable seed data, and all six re
 | `GET /groups/{group_id}/expenses` | Implemented; local checks passed |
 | `DELETE /groups/{group_id}/expenses/{expense_id}` | Implemented; payer-only soft deletion |
 | `GET /groups/{group_id}/balances` | Implemented; exact paid-minus-owed member totals |
-| Next.js frontend | Not implemented |
+| Next.js frontend | Implemented: user/groups, equal/exact previews, creation/retry, list, balances, payer deletion |
 
 An existing group that the requester cannot access returns `404`, using the same response as an unknown group. This avoids disclosing group existence. `X-User` selects one of the seeded users; it is an assessment convention, not full authentication.
 
@@ -22,7 +22,7 @@ See [the API contract](docs/api-contract.md) for requests, responses and errors,
 
 ## System stack
 
-The [architecture guide](docs/architecture/README.md) explains the implemented backend and the planned Next.js / TypeScript / Tailwind CSS frontend. The planned browser UI calls FastAPI directly over HTTP/JSON. PostgreSQL stores the application data; a separate database supports integration tests. Hosting has not been selected.
+The [architecture guide](docs/architecture/README.md) explains the stack. Its diagram is the historical backend-milestone snapshot, when the frontend was still planned. The implemented Next.js / TypeScript / Tailwind CSS browser UI calls FastAPI directly over HTTP/JSON. PostgreSQL stores the application data; a separate database supports integration tests. Hosting has not been selected.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/stack-dark.png">
@@ -35,7 +35,7 @@ The [architecture guide](docs/architecture/README.md) explains the implemented b
 
 - Python 3.12 or later; use a matching interpreter when creating the virtual environment.
 - A running PostgreSQL 16 server, with separate application and test databases.
-- Git. Node.js is not required for this backend milestone.
+- Node.js 24 LTS or a supported newer version (24–26), npm, and Git. Python/PostgreSQL alone are sufficient when working only on the backend.
 
 If databases do not exist, connect as a local PostgreSQL administrator and create them. The following credentials are local placeholders; choose a password and put the same value in your untracked `.env`:
 
@@ -87,6 +87,8 @@ The last request is expected to return `404`. Missing or unknown `X-User` values
 
 ## Checks
 
+Frontend setup and browser integration checks are documented below. The following checks cover the backend.
+
 From the repository root, set `TEST_DATABASE_URL` to your dedicated test database and run the suite with one command:
 
 ```sh
@@ -137,9 +139,63 @@ The six required backend test cases are covered by the full suite. The added DEL
 
 At the local completion checkpoint, the full PostgreSQL 16 suite passed **151 tests with warnings treated as errors** (115 existing, 16 DELETE, 20 balances). Ruff lint/format over 35 Python files and generated OpenAPI consistency also passed. These local results are distinct from remote CI and delivery evidence.
 
-## Remaining assessment scope
+## Frontend
 
-The Next.js frontend and real browser-to-API integration remain to be implemented. Its arithmetic and previews must match the backend without binary floating-point errors.
+Start the backend using the commands above. In a second terminal, from the repository root:
+
+```sh
+cd frontend
+cp .env.example .env.local
+npm ci
+npm run dev
+```
+
+Open **http://localhost:3000**. The default public API URL is `http://127.0.0.1:8000`; change `NEXT_PUBLIC_API_URL` in `frontend/.env.local` if needed, then restart Next. The backend's `CORS_ORIGINS` must include the browser origin (the default is `http://localhost:3000`). Database URLs and passwords belong only in the ignored root `.env`, never in frontend configuration.
+
+Select alice, bob, carol, or dan, then an accessible group. Add a description and amount, select the payer and participants, and inspect the allocation before saving. Exact mode displays the unallocated/over-allocated amount and blocks submission until all shares sum to the bill. Expense details show stored shares; only the payer sees the delete action. Balances label money owed to a member, money the member owes, or zero net balance; no transfer/payment capability is implied.
+
+Amounts stay decimal strings at the API boundary. The frontend parses them into `BigInt` integer satang, divides with quotient/remainder in visible member order, and formats integer digits with two decimal places. No money passes through `Number`, `parseFloat`, or binary floating-point multiplication. Exact shares may be zero; signed aggregate balances are formatted without the single-expense limit. Thus `0.10 + 0.20` stays `0.30`, and `100.00 / 3` becomes `33.34 / 33.33 / 33.33` independently of who paid.
+
+One frozen submission body and key are retained in tab-local session storage before POST. A lost/uncertain response offers retry of that same intent, including after reload, and blocks another bill until it resolves. Successful creation or replay resets the form; deleted replays remain deleted. Failed validation preserves editable values. Data is refreshed from the server after mutations; a refresh failure is distinct from a failed write. Requests from an old user/group and superseded refreshes cannot replace newer data.
+
+The app uses native form controls, React state, and fetch. Tailwind 4 provides theme tokens/preflight with semantic component CSS. Noto Sans Thai is self-hosted under its bundled OFL license; the browser/build does not fetch Google Fonts. The supported Webpack compiler is selected explicitly because Turbopack's CSS worker could not bind its local port in the development environment. No form/state/query library, settlement API, custom select, or extra route is added.
+
+For a production build, set the intended API URL **before building** because Next inlines public environment values:
+
+```sh
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm start
+```
+
+The [approved design](DESIGN.md), [implementation plan](docs/frontend-plan.md), and [design references/screenshots](design-system/README.md) record the design choices and source limitations. The examples below are actual application screenshots captured against a disposable PostgreSQL test schema; they are not Stitch exports or production transaction data.
+
+![SplitBill desktop interface](design-system/frontend-desktop.png)
+
+[Mobile screenshot](design-system/frontend-mobile.png)
+
+## Real browser/API/PostgreSQL checks
+
+Use the backend environment plus separately installed browser test tooling (not backend runtime dependencies):
+
+```sh
+backend/.venv/bin/python -m pip install playwright==1.64.1
+backend/.venv/bin/python -m playwright install chromium
+backend/.venv/bin/python scripts/test-frontend-integration.py
+```
+
+The runner reads `TEST_DATABASE_URL` from the environment or ignored root `.env`, requires PostgreSQL 16 and a separate test database, creates a randomly named schema, migrates/seeds it, builds Next for test API port 8059, and starts its own API8059/frontend3001. It drops only that schema and stops its own processes on completion. Keep those two ports free. It never seeds or deletes application data. Port overrides are available with `--api-port` and `--web-port`.
+
+The checks exercise real group access, ordered equal splits, exact totals/zero shares, creation/list/balances, payer deletion, authorization, and zero-sum totals. Failure simulations delay real responses or discard one response after the real backend commits; they do not replace the API or database with fake success data. They verify frozen-key retry across reload and protection against old responses. Responsive screenshots are written to `design-system`; failed browser checks leave diagnostic evidence in a temporary directory. The [frontend CI workflow](.github/workflows/frontend.yml) runs lint/type/native tests, production build and these browser checks with PostgreSQL 16.
+
+The runner's build points to its temporary API port. Rebuild with your normal API configuration before using `npm start` afterward; `npm run dev` reads your normal environment independently. Commit-specific local/remote check results belong in the delivery record, not an assertion inferred from this workflow file.
+
+## Remaining scope
+
+Deployment/hosting, production authentication, and optional settlement/payment endpoints remain outside this assessment implementation. The current UI is the single-page assessment workflow; it does not create users or groups or edit expenses.
 
 Full authentication, optional settlement/payment endpoints, and visual polish are outside this backend scope. [AI_NOTES.md](AI_NOTES.md) records AI assistance, detected errors, and corrections. The historical baseline implementation/review estimate was **about 30–45 minutes**, excluding earlier prompt drafting; it does not include the later expense, deletion and balance milestones and is not a precise time log.
 

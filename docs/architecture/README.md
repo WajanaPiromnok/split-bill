@@ -1,6 +1,6 @@
 # SplitBill: stack และเส้นทางข้อมูล
 
-ภาพนี้แสดง backend ที่มีอยู่ใน repository และ frontend ตาม brief ซึ่งยังไม่ได้พัฒนา เส้นทางจาก browser ไป API เป็นแผนสำหรับการเชื่อมต่อในขั้น frontend
+ภาพนี้เป็น snapshot ของ milestone backend ก่อนเริ่ม frontend จึงยังมีป้าย PLANNED อยู่ในภาพ ปัจจุบัน frontend พัฒนาใน Next.js / TypeScript / Tailwind แล้วและเรียก FastAPI โดยตรง ดูการรันและผลตรวจตาม revision ใน [README หลัก](../../README.md) และ [ภาพหน้าจอแอปจริง](../../design-system/README.md)
 
 - [เปิดแผนภาพ HTML](stack.html)
 - [ภาพ PNG พื้นสว่าง](stack.png) · [ภาพ PNG พื้นมืด](stack-dark.png)
@@ -11,7 +11,7 @@
 
 | ส่วน | เทคโนโลยี | หน้าที่ | สถานะ |
 | --- | --- | --- | --- |
-| Frontend | Next.js + TypeScript + Tailwind CSS | UI เลือกผู้ใช้/กลุ่ม แสดงรายจ่ายและยอดคงเหลือ สร้างและลบรายจ่าย | ตาม brief; ยังไม่ได้พัฒนา |
+| Frontend | Next.js + TypeScript + Tailwind CSS | UI เลือกผู้ใช้/กลุ่ม แสดงรายจ่ายและยอดคงเหลือ สร้างและลบรายจ่าย | พัฒนาแล้ว; ภาพเดิมบันทึกสถานะก่อนเริ่ม UI |
 | HTTP API | FastAPI + Uvicorn, Python 3.12+ | รับ HTTP/JSON ตรวจข้อมูลและสิทธิ์ แล้วส่งผลลัพธ์ JSON | มีแล้ว: 6 endpoints |
 | Business services | Python `Decimal` และจำนวนเต็มหน่วยสตางค์ | ตรวจสมาชิก แบ่งเงินแบบ equal/exact, idempotency และสิทธิ์ลบของผู้จ่าย | มีแล้ว |
 | Data access | SQLAlchemy 2 + psycopg 3 | จัดการ session/transaction และ query PostgreSQL | มีแล้ว |
@@ -23,7 +23,7 @@
 
 ## เส้นทาง request
 
-1. **รอพัฒนา frontend:** browser ที่รัน UI ส่ง HTTP/JSON ตรงไป FastAPI; กำหนด origin ที่อนุญาตผ่าน `CORS_ORIGINS` ของ backend การเชื่อมต่อจริงจาก browser ยังรอการตรวจสอบในขั้น frontend
+1. Browser ที่รัน UI ส่ง HTTP/JSON ตรงไป FastAPI; กำหนด origin ที่อนุญาตผ่าน `CORS_ORIGINS` ของ backend การตรวจทั้งระบบใช้ browser กับ API จริงและ schema ชั่วคราวใน PostgreSQL16 test database
 2. Uvicorn รับ request ให้ FastAPI ตรวจ schema และอ่าน `X-User` เพื่อเลือกผู้ใช้ตัวอย่าง จากนั้น services ตรวจสิทธิ์สมาชิกของกลุ่มและกฎธุรกิจ
 3. Services ตรวจเงินด้วย `Decimal`; equal split คำนวณเป็นจำนวนเต็มหน่วยสตางค์และแจกเศษตามลำดับสมาชิก ส่วน exact split ต้องรวมเท่าจำนวนเงินของบิล
 4. Repositories ใช้ SQLAlchemy และ psycopg ติดต่อ application database รายจ่ายและ shares บันทึกใน transaction เดียว; idempotency key มีขอบเขตต่อกลุ่ม และ soft delete เก็บแถวเดิมไว้
@@ -39,7 +39,7 @@ Alembic และ seed เป็นคำสั่ง setup ที่ติด�
 
 [Workflow สาม branch](../git-workflow.md) ใช้ `main` เป็นฐานส่งต่องานที่ยอมรับแล้ว, `dev/backend` สำหรับ backend และ `dev/frontend` สำหรับ frontend โดยส่ง milestone ผ่าน PR เข้า `main` แล้ว sync กลับทั้งสอง dev branches การตั้งค่า workflow นี้ไม่ได้ยืนยันว่ามี branch protection บน server
 
-งานที่ยังเหลือคือสร้าง frontend ตาม brief ให้ preview และจัดการเงินตรงกับ backend แล้วตรวจ integration ผ่าน browser กับ API จริง โดยใช้ revision ที่ส่งมอบและ OpenAPI snapshot ที่ตรงกัน ดูวิธีติดตั้งและรัน checks ใน [README หลัก](../../README.md)
+Frontend ใช้ BigInt หน่วยสตางค์ให้ preview ตรงกับ backend และมี integration runner ผ่าน browser กับ API จริง ผล checks และ SHA ต้องรายงานจากการรันของ revision ที่ส่งมอบ ดูวิธีติดตั้งใน [README หลัก](../../README.md) โดย hosting และ production authentication ยังอยู่นอกขอบเขตนี้
 
 ## ไฟล์แผนภาพ
 
