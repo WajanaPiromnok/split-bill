@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import ExpenseForm from "./expense-form";
 import {
   api,
@@ -100,9 +101,14 @@ export default function Workspace() {
       </a>
       <header className="topbar">
         <a href="#workspace" className="brand" aria-label="SplitBill หน้าหลัก">
-          <span className="brand-mark" aria-hidden="true">
-            ÷
-          </span>
+          <Image
+            className="brand-mark"
+            src="/icon.svg"
+            width={43}
+            height={43}
+            alt=""
+            unoptimized
+          />
           <span>
             SplitBill<span className="brand-caption">แบ่งบิลให้ลงตัว</span>
           </span>

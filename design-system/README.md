@@ -8,7 +8,7 @@ The owner approved the direction in [DESIGN.md](../DESIGN.md): a friendly, reada
 - [PRODUCT.md](../PRODUCT.md) records product context and the owner's confirmed personality.
 - [DESIGN.md](../DESIGN.md) is the reviewed visual specification; [the frontend plan](../docs/frontend-plan.md) defines interaction and integration behavior.
 - `ui-ux-pro-max` informed Thai typography, form usability, keyboard access, readable contrast, and responsive checks. `impeccable` governs the interface quality; `ponytail` keeps implementation dependencies and abstractions small.
-- Noto Sans Thai comes from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/notosansthai); its [OFL license](../frontend/app/fonts/OFL.txt) accompanies the self-hosted font. The app's [division mark](../frontend/app/icon.svg) is also included as a source asset.
+- Noto Sans Thai comes from [Google Fonts](https://github.com/google/fonts/tree/main/ofl/notosansthai); its [OFL license](../frontend/app/fonts/OFL.txt) accompanies the self-hosted font. The [division mark SVG](../frontend/app/icon.svg) is shared by the header and favicon, so its alignment does not depend on font metrics. The header renders it at 43px on desktop and 36px on mobile.
 
 ## Review of the generated reference
 
@@ -35,3 +35,9 @@ Both images were generated on 2026-11-03 by [the integration runner](../scripts/
 The same runner checks page overflow at 375/390/768/1024/1440px and reduced motion. This is Chromium evidence, not a claim of testing every browser or every device. These files are application screenshots, not Stitch exports.
 
 ![Desktop application example](frontend-desktop.png)
+
+## Header logo alignment
+
+The header uses the same SVG as the favicon rather than a font glyph, keeping the division mark centered at both sizes. These crops were captured from the running development app on 2026-11-03 after the image and fonts loaded: [desktop, 1440px viewport](logo-desktop.png) and [mobile, 390px viewport](logo-mobile.png). They show the header only and do not replace the full-stack screenshots above.
+
+![Aligned desktop header logo](logo-desktop.png)
