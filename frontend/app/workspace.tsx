@@ -868,28 +868,83 @@ function GroupWorkspace({
                     <div className="expense-icon" aria-hidden="true">
                       ÷
                     </div>
-                    <div className="expense-body">
-                      <h3>{expense.description}</h3>
-                      <p>
-                        <span>{expense.paid_by} จ่ายให้ก่อน</span>
-                        <span className="dot" aria-hidden="true">
-                          ·
-                        </span>
-                        <time dateTime={expense.created_at}>
-                          {new Intl.DateTimeFormat("th-TH", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }).format(new Date(expense.created_at))}
-                        </time>
-                      </p>
-                      <details>
+                    <div className="expense-content">
+                      <div className="expense-heading">
+                        <div className="expense-body">
+                          <h3>{expense.description}</h3>
+                          <p>
+                            <span>{expense.paid_by} จ่ายให้ก่อน</span>
+                            <span className="dot" aria-hidden="true">
+                              ·
+                            </span>
+                            <time dateTime={expense.created_at}>
+                              {new Intl.DateTimeFormat("th-TH", {
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }).format(new Date(expense.created_at))}
+                            </time>
+                          </p>
+                        </div>
+                        <div className="expense-side">
+                          <div className="expense-amount">
+                            <strong className="money">
+                              {formatMoney(expense.amount)}
+                            </strong>
+                            <span>บาท</span>
+                          </div>
+                          <div className="expense-actions">
+                            {expense.paid_by === user ? (
+                              <button
+                                className="delete-button"
+                                aria-label={`ลบ ${expense.description}`}
+                                disabled={
+                                  !!pending || deleting !== null || confirmExit
+                                }
+                                onClick={(event) => {
+                                  deleteTrigger.current = event.currentTarget;
+                                  setConfirmDelete(expense.id);
+                                }}
+                              >
+                                ลบ
+                              </button>
+                            ) : (
+                              <span className="payer-only">ลบได้โดยผู้จ่าย</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <details className="expense-split">
                         <summary>
-                          ดูส่วนแบ่ง · {Object.keys(expense.shares).length} คน ·{" "}
-                          {expense.split_type === "equal"
-                            ? "หารเท่ากัน"
-                            : "กำหนดจำนวนเอง"}
+                          <svg
+                            className="share-chevron"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="m6 4 4 4-4 4"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <span>
+                            <span className="share-summary-label">
+                              ดูส่วนแบ่ง
+                            </span>
+                            <span className="share-summary-meta">
+                              {" · "}
+                              {Object.keys(expense.shares).length} คน ·{" "}
+                              {expense.split_type === "equal"
+                                ? "หารเท่ากัน"
+                                : "กำหนดจำนวนเอง"}
+                            </span>
+                          </span>
                         </summary>
                         <dl className="share-details">
                           {Object.entries(expense.shares).map(
@@ -904,31 +959,6 @@ function GroupWorkspace({
                           )}
                         </dl>
                       </details>
-                    </div>
-                    <div className="expense-amount">
-                      <strong className="money">
-                        {formatMoney(expense.amount)}
-                      </strong>
-                      <span>บาท</span>
-                    </div>
-                    <div className="expense-actions">
-                      {expense.paid_by === user ? (
-                        <button
-                          className="delete-button"
-                          aria-label={`ลบ ${expense.description}`}
-                          disabled={
-                            !!pending || deleting !== null || confirmExit
-                          }
-                          onClick={(event) => {
-                            deleteTrigger.current = event.currentTarget;
-                            setConfirmDelete(expense.id);
-                          }}
-                        >
-                          ลบ
-                        </button>
-                      ) : (
-                        <span className="payer-only">ลบได้โดยผู้จ่าย</span>
-                      )}
                     </div>
                     {confirmDelete === expense.id && (
                       <div

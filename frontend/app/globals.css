@@ -786,10 +786,10 @@ a {
 .expense-row {
   display: flex;
   align-items: start;
-  gap: 16px;
+  gap: var(--space-md);
   flex-wrap: wrap;
   border-bottom: 1px solid var(--color-rule);
-  padding: 24px 0;
+  padding: 20px 0;
 }
 .expense-icon {
   display: grid;
@@ -802,8 +802,18 @@ a {
   color: var(--color-primary);
   font-size: 27px;
 }
-.expense-body {
+.expense-content {
   flex: 1;
+  min-width: 0;
+}
+.expense-heading {
+  display: flex;
+  align-items: start;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-lg);
+}
+.expense-body {
+  flex: 1 1 160px;
   min-width: 0;
 }
 .expense-body h3 {
@@ -814,59 +824,93 @@ a {
   flex-wrap: wrap;
   gap: 4px 8px;
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 3px;
 }
-details summary {
+.expense-split summary {
   width: fit-content;
+  max-width: 100%;
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  color: var(--color-primary);
+  font-size: 14px;
+  list-style: none;
+}
+.expense-split summary::-webkit-details-marker {
+  display: none;
+}
+.expense-split summary::marker {
+  content: "";
+}
+.expense-split summary:hover {
+  background: var(--color-surface);
+  color: var(--color-primary-hover);
+}
+.expense-split summary:active {
+  background: var(--color-selected);
+}
+.share-summary-label {
+  font-weight: 500;
+}
+.share-summary-meta {
   color: var(--color-muted);
-  font-size: 12px;
-  text-decoration: underline;
-  text-decoration-color: var(--color-rule);
-  text-underline-offset: 4px;
 }
-details summary::after {
-  content: "+";
-  font-size: 16px;
+.share-chevron {
+  flex-shrink: 0;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-details[open] summary::after {
-  content: "−";
+.expense-split[open] .share-chevron {
+  transform: rotate(90deg);
 }
 .share-details {
   margin: 0;
-  padding: 8px 0 0;
-  max-width: 360px;
-  font-size: 13px;
+  padding: var(--space-xs) 0 0 var(--space-lg);
+  max-width: 320px;
+  font-size: 14px;
 }
 .share-details > div {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 4px 0;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+}
+.share-details dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .share-details dd {
+  flex-shrink: 0;
   margin: 0;
   text-align: right;
+  white-space: nowrap;
+}
+.expense-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  max-width: 100%;
+  margin-inline-start: auto;
 }
 .expense-amount {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
   text-align: right;
-  max-width: 30%;
+  white-space: nowrap;
 }
 .expense-amount strong {
-  display: block;
   font-size: 20px;
   font-weight: 600;
 }
 .expense-amount > span {
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .expense-actions {
-  width: 120px;
   text-align: right;
 }
 .delete-button {
@@ -886,9 +930,7 @@ details[open] summary::after {
   color: var(--color-muted);
 }
 .payer-only {
-  display: inline-block;
-  font-size: 11px;
-  line-height: 44px;
+  font-size: 14px;
   color: var(--color-muted);
 }
 .delete-confirm {
@@ -1011,6 +1053,29 @@ details[open] summary::after {
 .page-footer > span:first-child {
   font-weight: 600;
 }
+@media (min-width: 851px) {
+  .expense-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-lg);
+    align-items: start;
+  }
+  .expense-heading {
+    display: contents;
+  }
+  .expense-body {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .expense-side {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .expense-split {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
 @media (max-width: 850px) {
   .workspace-grid {
     grid-template-columns: 1fr;
@@ -1018,10 +1083,6 @@ details[open] summary::after {
   }
   .balance-value {
     font-size: 22px;
-  }
-  .expense-actions {
-    width: auto;
-    min-width: 100px;
   }
   .page-footer {
     margin: 0 24px;
@@ -1157,22 +1218,11 @@ details[open] summary::after {
   .expense-icon {
     display: none;
   }
-  .expense-body {
-    flex-basis: 55%;
-  }
   .expense-body h3 {
     font-size: 15px;
   }
-  .expense-amount {
-    max-width: 36%;
-  }
   .expense-amount strong {
     font-size: 18px;
-  }
-  .expense-actions {
-    flex-basis: 100%;
-    text-align: left;
-    min-height: 44px;
   }
   .expense-body .dot {
     display: none;
